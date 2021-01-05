@@ -12,9 +12,6 @@ from dynamic_reconfigure.server import Server
 from precision_landing.cfg import ControllerConfig
 from simple_pid import PID
 
-# TODO
-# DESLIGAR O CV CONTROL NO FINAL DO CODIGO
-# MUDAR OS PRINTS DA MAVBASE 
 class PrecisionLanding():
     def __init__(self,MAV):
         # ROS setup
@@ -27,11 +24,17 @@ class PrecisionLanding():
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
         self.last_time = time.time()
 
+        #Cam Params
+        self.image_pixel_width = 320.0
+        self.image_pixel_height = -240.0
+
         # Attributes
         self.vel_x = self.vel_y = self.vel_z = 0
         self.delay = 0
-        self.is_losted = True
+        self.is_lost = True
         self.last_time = time.time()
+        self.flag = 0
+        self.done = 0
         
         # PIDs 
         # Parametros Proporcional,Integrativo e Derivativo 
@@ -40,8 +43,8 @@ class PrecisionLanding():
         self.pid_z = PID(-0.2, -0.005, -0.001)# Negative parameters (CV's -y -> Frame's +z)
         self.pid_w = PID(0, 0, 0) # Orientation
 
-        self.pid_x.setpoint = -240.0/2 # y size
-        self.pid_y.setpoint = 320.0/2 # x
+        self.pid_x.setpoint =  self.image_pixel_height/2 # y size
+        self.pid_y.setpoint = self.image_pixel_width/2 # x
         self.pid_z.setpoint = 0.2 # 
         self.pid_w.setpoint = 0 # orientation
 
@@ -58,7 +61,6 @@ class PrecisionLanding():
         #Dados enviados pelo H.cpp -> Centro do H e Proximidade do H (Area ratio)
         self.detection = vector_data
         self.last_time = time.time()
-        rospy.loginfo(self.detection.area_ratio)
 
     def run(self):
         #Inicializacao das variaveis usadas caso o drone perca o H
@@ -74,16 +76,15 @@ class PrecisionLanding():
         
 
         while not rospy.is_shutdown():
-            flag = 0
             self.delay = time.time() - self.last_time
-            self.is_losted = self.delay > 5 
-            if not self.is_losted:  
+            self.is_lost = self.delay > 5 
+            if not self.is_lost:  
                 if self.detection.area_ratio < 0.1: #Drone ainda esta longe do H
                     r = 0
                     teta = 0
-                    if(flag == 0):
-                        rospy.loginfo("Controle PID para pouso de precisao")
-                    flag = 1
+                    if(self.flag == 0):
+                        rospy.loginfo("Controle PID")
+                    self.flag = 1
                     
                     self.vel_x = self.pid_x(-self.detection.center_y)
                     self.vel_y = self.pid_y(self.detection.center_x)
@@ -102,14 +103,15 @@ class PrecisionLanding():
                     for i in range (10):
                         self.cv_control_publisher.publish(Bool(False))
                         self.MAV.rate.sleep()
+                    self.done = 1
 
                 self.MAV.set_vel(self.vel_x,self.vel_y,self.vel_z,0,0,0)
 
-            else:  #Drone perdeu o H
+            elif self.done != 1:  #Drone perdeu o H
                 ### Fazer espiral ###
-                if(flag == 1):
-                    rospy.loginfo("Fazendo espiral para procurar o H")
-                flag = 0
+                if(self.flag == 1):
+                    rospy.loginfo("Fazendo espiral")
+                self.flag = 0
                 #Funcao de espiral e volta para dois metros de altura
                 r += 0.002  
                 teta += 0.03
