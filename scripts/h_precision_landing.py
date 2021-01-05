@@ -12,38 +12,38 @@ from dynamic_reconfigure.server import Server
 from precision_landing.cfg import ControllerConfig
 from simple_pid import PID
 
-#DESLIGAR O CV CONTROL NO FINAL DO CODIGO
-#MUDAR OS PRINTS DA MAVBASE 
+# TODO
+# DESLIGAR O CV CONTROL NO FINAL DO CODIGO
+# MUDAR OS PRINTS DA MAVBASE 
 class PrecisionLanding():
     def __init__(self,MAV):
-         # ROS setup
+        # ROS setup
         self.rate = rospy.Rate(60)
 
         self.MAV = MAV
 
-        # Publishers
         self.cv_control_publisher = rospy.Publisher("/precision_landing/set_running_state", Bool, queue_size=10)
         
-        # Subscribers
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
         self.last_time = time.time()
-
-        # Servers
-        self.cfg_srv = Server(ControllerConfig, self.cfg_callback)
 
         # Attributes
         self.vel_x = self.vel_y = self.vel_z = 0
         self.delay = 0
-        self.scale_factor = 1
         self.is_losted = True
         self.last_time = time.time()
         
         # PIDs 
-        #Parametros Proporcional,Integrativo e Derivativo 
+        # Parametros Proporcional,Integrativo e Derivativo 
         self.pid_x = PID(-0.2, -0.01, -0.1)         
         self.pid_y = PID(0.2, 0.01, 0.1)
         self.pid_z = PID(-0.2, -0.005, -0.001)# Negative parameters (CV's -y -> Frame's +z)
         self.pid_w = PID(0, 0, 0) # Orientation
+
+        self.pid_x.setpoint = -240.0/2 # y size
+        self.pid_y.setpoint = 320.0/2 # x
+        self.pid_z.setpoint = 0.2 # 
+        self.pid_w.setpoint = 0 # orientation
 
         #Limitacao da saida        
         self.pid_x.output_limits = self.pid_y.output_limits = (-0.2, 0.2) # output value will be between -0.3 and 0.3
@@ -60,35 +60,6 @@ class PrecisionLanding():
         self.last_time = time.time()
         rospy.loginfo(self.detection.area_ratio)
 
-    def set_goal_pose(self, x, y, z, w):
-        #Posicao que o PID tera como objetivo 
-        self.pid_x.setpoint = -240.0/2 # y size
-        self.pid_y.setpoint = 320.0/2 # x
-        self.pid_z.setpoint = 0.2 # 
-        self.pid_w.setpoint = 0 # orientation
-
-    def cfg_callback(self, config, level):
-        
-        if hasattr(self, 'pid_x'):
-            self.pid_x.tunings = (config.p_x, config.i_x, config.d_x)
-            self.pid_y.tunings = (config.p_y, config.i_y, config.d_y)
-            self.pid_z.tunings = (config.p_z, config.i_z, config.d_z)
-            self.pid_w.tunings = (config.p_w, config.i_w, config.d_w)
-        else:
-            self.pid_x = PID(config.p_x, config.i_x, config.d_x)
-            self.pid_y = PID(config.p_y, config.i_y, config.d_y)
-            self.pid_z = PID(config.p_z, config.i_z, config.d_z)
-            self.pid_w = PID(config.p_w, config.i_w, config.d_w)
-        
-        self.scale_factor = config.scale_factor
-
-        self.set_goal_pose(config.position_x,
-                            config.position_y,
-                            config.position_z,
-                            config.position_w)
-
-        return config
-
     def run(self):
         #Inicializacao das variaveis usadas caso o drone perca o H
         r = 0                                        #Inicia valor para o raio da espiral 
@@ -96,7 +67,6 @@ class PrecisionLanding():
         last_x = self.MAV.drone_pose.pose.position.x    
         last_y = self.MAV.drone_pose.pose.position.y
         last_z = self.MAV.drone_pose.pose.position.z
-        self.set_goal_pose(0, 0, 0, 0) #Config do PID
         for i in range (10):
             self.cv_control_publisher.publish(Bool(True))
             self.MAV.rate.sleep()
@@ -129,11 +99,13 @@ class PrecisionLanding():
                     rospy.loginfo("H encontrado!")
                     rospy.logwarn("Descendo...")
                     self.MAV.land()
+                    for i in range (10):
+                        self.cv_control_publisher.publish(Bool(False))
+                        self.MAV.rate.sleep()
 
                 self.MAV.set_vel(self.vel_x,self.vel_y,self.vel_z,0,0,0)
 
             else:  #Drone perdeu o H
-                #rospy.loginfo("Timeout: {}".format(str(self.delay))
                 ### Fazer espiral ###
                 if(flag == 1):
                     rospy.loginfo("Fazendo espiral para procurar o H")
