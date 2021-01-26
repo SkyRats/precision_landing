@@ -62,7 +62,7 @@ class PrecisionLanding():
         self.detection = vector_data
         self.last_time = time.time()
 
-    def run(self):
+    def run(self,initial_height):
         #Inicializacao das variaveis usadas caso o drone perca o H
         r = 0                                        #Inicia valor para o raio da espiral 
         teta = 0                                     #Inicia valor para o teta da espiral 
@@ -72,7 +72,6 @@ class PrecisionLanding():
         for i in range (10):
             self.cv_control_publisher.publish(Bool(True))
             self.MAV.rate.sleep()
-        self.MAV.takeoff(2)
         
 
         while not rospy.is_shutdown():
@@ -117,7 +116,7 @@ class PrecisionLanding():
                 teta += 0.03
                 x = last_x - r * math.cos( teta ) 
                 y = last_y - r * math.sin( teta )
-                self.MAV.set_position(x,y,2)
+                self.MAV.set_position(x,y,initial_height)
                 if (r > 1.5):   #limita o tamanho da espiral
                     r = 0
 
@@ -127,4 +126,6 @@ if __name__ == "__main__":
     rospy.init_node('precision_landing')
     drone = MAV("Robinho")
     c = PrecisionLanding(drone)
-    c.run()
+    c.MAV.takeoff(2)
+    initial_height = 2
+    c.run(initial_height)
