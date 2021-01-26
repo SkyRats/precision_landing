@@ -56,7 +56,6 @@ find_package(OpenCV REQUIRED)
 add_message_files(
   FILES
   H_info.msg
-  HInfo.msg
 )
 
 ## Generate services in the 'srv' folder
