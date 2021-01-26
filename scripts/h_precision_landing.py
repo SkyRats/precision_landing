@@ -35,6 +35,7 @@ class PrecisionLanding():
         self.last_time = time.time()
         self.flag = 0
         self.done = 0
+        self.first = True
         
         # PIDs 
         # Parametros Proporcional,Integrativo e Derivativo 
@@ -76,7 +77,12 @@ class PrecisionLanding():
 
         while not rospy.is_shutdown():
             self.delay = time.time() - self.last_time
-            self.is_lost = self.delay > 5 
+            if self.first:
+                self.is_lost = True
+            else:
+                self.is_lost = self.delay > 3
+            if self.delay > 3:
+                self.first = False
             if not self.is_lost:  
                 if self.detection.area_ratio < 0.1: #Drone ainda esta longe do H
                     r = 0
@@ -105,7 +111,12 @@ class PrecisionLanding():
                     self.done = 1
 
                 self.MAV.set_vel(self.vel_x,self.vel_y,self.vel_z,0,0,0)
-
+            elif self.first:
+                rospy.loginfo("Iniciando...")
+                x = last_x 
+                y = last_y
+                self.flag = 1 
+                self.MAV.set_position(x,y,initial_height)
             elif self.done != 1:  #Drone perdeu o H
                 ### Fazer espiral ###
                 if(self.flag == 1):
