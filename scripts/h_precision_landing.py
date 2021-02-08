@@ -8,8 +8,6 @@ from mavbase.MAV import MAV
 from precision_landing.msg import H_info
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import Bool
-from dynamic_reconfigure.server import Server
-from precision_landing.cfg import ControllerConfig
 from simple_pid import PID
 
 class PrecisionLanding():
@@ -24,8 +22,8 @@ class PrecisionLanding():
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
 
         #Cam Params
-        self.image_pixel_width = 320.0
-        self.image_pixel_height = -240.0
+        self.image_pixel_width = 640.0
+        self.image_pixel_height = -480.0
 
         # Attributes
         self.vel_x = self.vel_y = self.vel_z = 0
