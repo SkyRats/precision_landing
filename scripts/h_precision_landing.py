@@ -22,7 +22,6 @@ class PrecisionLanding():
         self.cv_control_publisher = rospy.Publisher("/precision_landing/set_running_state", Bool, queue_size=10)
         
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
-        self.last_time = time.time()
 
         #Cam Params
         self.image_pixel_width = 320.0
@@ -80,8 +79,8 @@ class PrecisionLanding():
             if self.first:
                 self.is_lost = True
             else:
-                self.is_lost = self.delay > 3
-            if self.delay > 3:
+                self.is_lost = self.delay > 5
+            if self.delay > 5:
                 self.first = False
             if not self.is_lost:  
                 if self.detection.area_ratio < 0.1: #Drone ainda esta longe do H

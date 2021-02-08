@@ -2,6 +2,9 @@
 using namespace std;
 #include <opencv2/opencv.hpp>
 using namespace cv;
+
+#include <assert.h>
+
 #include "ros/ros.h"
 #include <sensor_msgs/image_encodings.h> 
 #include <cv_bridge/cv_bridge.h>
@@ -97,13 +100,14 @@ void HDetector::image_cb(const sensor_msgs::ImageConstPtr& img){
         }
 
         precision_landing::H_info msg;
-
-        if (this->detect(cv_ptr->image)){
-            msg.detected = true;
-            msg.center_x = this->getCenter_X();
-            msg.center_y = this->getCenter_Y();
-            msg.area_ratio = this->getArea();
-            this->h_pub.publish(msg);
+        if (!cv_ptr->image.empty()){
+            if (this->detect(cv_ptr->image)){
+                msg.detected = true;
+                msg.center_x = this->getCenter_X();
+                msg.center_y = this->getCenter_Y();
+                msg.area_ratio = this->getArea();
+                this->h_pub.publish(msg);
+            }
         }
         
     }
@@ -203,41 +207,37 @@ bool HDetector::detect (Mat frame){
     bool detected = false;
     //("Entrou no detect");
     
-    // if(DEBUG) Mat frame2 = frame;
-    
-    cvtColor(frame, frame, CV_BGR2GRAY);
+    Mat frame2;
+    if(DEBUG) frame.copyTo(frame2);
+    //cvtColor(frame, frame, CV_BGR2RGB);
+    cvtColor(frame, frame, CV_RGB2GRAY);
+    imshow("Test", frame);
+    waitKey(3);
     // Blur and threshold remove noise from image
-
-    threshold(frame, frame, 115, 255, 1);
-    adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
-    adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
-    
+    threshold(frame, frame, 90, 255, CV_THRESH_BINARY_INV);
+    //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
+    //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
     vector<vp> contour;
     findContours(frame, contour, RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
-
-    /* if(DEBUG){
+    if(DEBUG){
         imshow("Lines", frame2);
         imshow("Processed", frame);
-    } */
-
+    }
+    waitKey(2);
     for(vp cnt : contour){
-
         int peri = arcLength(cnt, true);
         vpf approx;
         approxPolyDP(cnt, approx, 0.02*peri, true);
-        
         if (approx.size() == 12){
             
             this->bounds = boundingRect(approx); // Precisa ser Rect2f?
             
             float a1 = angle(approx[0] - approx[1], Point2f(0,1));
             float a2 = angle(approx[1] - approx[2], Point2f(0,1));
-
             /* If the sides of the H are very close to parallel to its bounds,
                 use the bounding rect vertices for warp */
             if( a1 < 0.1 || a2 < 0.1
-               || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 ){
-
+            || abs(a1 - PI) < 0.1 || abs(a1 - PI) < 0.1 ){
                 this->edge_pts = {
                     Point2f (bounds.x, bounds.y) ,
                     Point2f (bounds.x + bounds.width, bounds.y) , 
@@ -248,28 +248,21 @@ bool HDetector::detect (Mat frame){
             /* If they are far, use the vertices that are closest to the bounding
                 rect sides */
             }else{
-
                 for(Point2f v : approx){
-
                     // Close on left side of bound
                     if( abs(v.x - bounds.x) <= 1) this->edge_pts[0] = v;
                     // On right side
                     else if( abs(v.x - (bounds.x + bounds.width) ) <= 1) this->edge_pts[1] = v;
-
                     // On top
                     else if( abs(v.y - bounds.y) <= 1) this->edge_pts[2] = v;
                     //On bottom
                     else if( abs(v.y - (bounds.y + bounds.height) ) <= 1) this->edge_pts[3] = v;
-
                 }
-
             }
-
             Mat perspective = four_points_transform(frame);
             vpf transformed;
             perspectiveTransform(approx, transformed, perspective);
-
-            /* if(DEBUG){ 
+            if(DEBUG){ 
                 imshow("warped", frame);
                 // Shows captures edge of H in black
                 circle(frame2, this->edge_pts[0], 3, (255,0,0), 3 );
@@ -279,18 +272,12 @@ bool HDetector::detect (Mat frame){
                 // Draws bound
                 rectangle(frame2, bounds, (0,255,0));
                 imshow("Lines", frame2);
-            } */
-
+            }
             if (angle_check(approx)){
+                if(DEBUG) cout << "H Detectado" << endl;
                 detected = true;
                 this->setArea(approx, frame);
             }
-
-            /* if(DEBUG){
-                if(detected == true) cout << "H detectado!" << endl;
-                else cout << endl;
-            } */
-
         }
     }
     return detected;
