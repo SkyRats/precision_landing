@@ -57,7 +57,7 @@ HDetector::HDetector(){
     this->h_pub = this->n.advertise<precision_landing::H_info>("/precision_landing/detection", 0);
     this->img_debug_pub = this->n.advertise<sensor_msgs::Image>("/precision_landing/debug/image_raw", 0);
     this->h_sub_image = this->n.subscribe("/usb_cam/image_raw", 5, &HDetector::image_cb, this);
-    this->h_sub_runner = this->n.subscribe("/precision_landing/set_running_state",10, &HDetector::runnin_state_cb, this);
+    this->h_sub_runner = this->n.subscribe("/precision_landing/set_running_state", 10, &HDetector::runnin_state_cb, this);
 }
 
 /* Order points in edge_pts so that the first exit is the top-left, the second 
@@ -205,11 +205,11 @@ int HDetector::getCenter_Y(){
 // Takes an image 'frame' and detects whether it contains the letter H
 bool HDetector::detect (Mat frame){
     bool detected = false;
-    //("Entrou no detect");
     
     Mat frame2;
     if(DEBUG) frame.copyTo(frame2);
-    //cvtColor(frame, frame, CV_BGR2RGB);
+
+    // Images from the webcam are RGB, and not OpenCV's standard BGR
     cvtColor(frame, frame, CV_RGB2GRAY);
     imshow("Test", frame);
     waitKey(3);
@@ -220,13 +220,14 @@ bool HDetector::detect (Mat frame){
     
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
+    
     vector<vp> contour;
     findContours(frame, contour, RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
     if(DEBUG){
         imshow("Lines", frame2);
         imshow("Processed", frame);
+        waitKey(2);
     }
-    waitKey(2);
     for(vp cnt : contour){
         int peri = arcLength(cnt, true);
         vpf approx;
