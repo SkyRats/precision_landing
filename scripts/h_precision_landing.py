@@ -8,8 +8,6 @@ from mavbase.MAV import MAV
 from precision_landing.msg import H_info
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import Bool
-from dynamic_reconfigure.server import Server
-from precision_landing.cfg import ControllerConfig
 from simple_pid import PID
 
 class PrecisionLanding():
