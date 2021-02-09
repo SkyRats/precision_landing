@@ -1,0 +1,6 @@
+<launch>
+    <rosparam command="load" file="$(find mavbase)/config/mavros_params.yaml"/>
+    <rosparam command="load" file="$(find precision_landing)/config/detection_params.yaml"/>
+    <node pkg="precision_landing" name="h_threshold_tunning" type="h_threshold_tunning.py" output="screen"/>
+    <node pkg="precision_landing" name="h_node" type="h_node" output="screen"/>
+</launch>
