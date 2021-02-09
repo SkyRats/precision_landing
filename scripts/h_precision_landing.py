@@ -22,8 +22,8 @@ class PrecisionLanding():
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
 
         #Cam Params
-        self.image_pixel_width = 320.0
-        self.image_pixel_height = -240.0
+        self.image_pixel_width = rospy.get_param('/image_height')
+        self.image_pixel_height = - rospy.get_param('/image_width')
 
         # Attributes
         self.vel_x = self.vel_y = self.vel_z = 0
