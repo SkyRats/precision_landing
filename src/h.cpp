@@ -215,7 +215,7 @@ bool HDetector::detect (Mat frame){
     waitKey(3);
     // Threshold removes noise from image
     int thresh;
-    this->n.getParam('/cv_threshold', thresh);
+    this->n.getParam("/cv_threshold", thresh);
     threshold(frame, frame, thresh, 255, CV_THRESH_BINARY_INV);
     
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
