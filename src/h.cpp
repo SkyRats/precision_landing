@@ -205,16 +205,16 @@ int HDetector::getCenter_Y(){
 // Takes an image 'frame' and detects whether it contains the letter H
 bool HDetector::detect (Mat frame){
     bool detected = false;
-    //("Entrou no detect");
+    cout << "Entrou no detect" << endl;
     
     Mat frame2;
     if(DEBUG) frame.copyTo(frame2);
     //cvtColor(frame, frame, CV_BGR2RGB);
     cvtColor(frame, frame, CV_RGB2GRAY);
     imshow("Test", frame);
-    waitKey(3);
+    waitKey(1);
     // Blur and threshold remove noise from image
-    threshold(frame, frame, 90, 255, CV_THRESH_BINARY_INV);
+    threshold(frame, frame, 190, 255, CV_THRESH_BINARY_INV);
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
     vector<vp> contour;
@@ -224,6 +224,7 @@ bool HDetector::detect (Mat frame){
         imshow("Processed", frame);
     }
     waitKey(2);
+    cout << frame;
     for(vp cnt : contour){
         int peri = arcLength(cnt, true);
         vpf approx;

@@ -77,15 +77,16 @@ class PrecisionLanding():
             if self.first:
                 self.is_lost = True
             else:
-                self.is_lost = self.delay > 5
-            if self.delay > 5:
+                self.is_lost = self.delay > 3
+            if self.delay > 3:
                 self.first = False
             if not self.is_lost:  
-                if self.detection.area_ratio < 0.1: #Drone ainda esta longe do H
+                if self.detection.area_ratio < 0.06: #Drone ainda esta longe do H
                     r = 0
                     teta = 0
                     if(self.flag == 0):
                         rospy.loginfo("Controle PID")
+                        print("Controle PID")
                     self.flag = 1
                     
                     self.vel_x = self.pid_x(-self.detection.center_y)
@@ -101,6 +102,7 @@ class PrecisionLanding():
                     #Caso o drone esteja suficientemente perto do H
                     rospy.loginfo("H encontrado!")
                     rospy.logwarn("Descendo...")
+                    print("H encontrado, descendo")
                     self.MAV.land()
                     for i in range (10):
                         self.cv_control_publisher.publish(Bool(False))
@@ -118,10 +120,11 @@ class PrecisionLanding():
                 ### Fazer espiral ###
                 if(self.flag == 1):
                     rospy.loginfo("Fazendo espiral")
+                    print("Fazendo espiral")
                 self.flag = 0
                 #Funcao de espiral e volta para dois metros de altura
-                r += 0.002  
-                teta += 0.03
+                r += 0.0002  
+                teta += 0.01
                 x = last_x - r * math.cos( teta ) 
                 y = last_y - r * math.sin( teta )
                 self.MAV.set_position(x,y,initial_height)
@@ -135,5 +138,5 @@ if __name__ == "__main__":
     drone = MAV("Robinho")
     c = PrecisionLanding(drone)
     c.MAV.takeoff(2)
-    initial_height = 2
+    initial_height = 2.5
     c.run(initial_height)
