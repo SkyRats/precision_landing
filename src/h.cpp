@@ -212,9 +212,12 @@ bool HDetector::detect (Mat frame){
     //cvtColor(frame, frame, CV_BGR2RGB);
     cvtColor(frame, frame, CV_RGB2GRAY);
     imshow("Test", frame);
-    waitKey(1);
-    // Blur and threshold remove noise from image
-    threshold(frame, frame, 190, 255, CV_THRESH_BINARY_INV);
+    waitKey(3);
+    // Threshold removes noise from image
+    int thresh;
+    this->n.getParam("/cv_threshold", thresh);
+    threshold(frame, frame, thresh, 255, CV_THRESH_BINARY_INV);
+    
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
     vector<vp> contour;
