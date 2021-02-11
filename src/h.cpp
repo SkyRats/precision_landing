@@ -9,8 +9,11 @@ using namespace cv;
 #include <sensor_msgs/image_encodings.h> 
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/Image.h>
-#include "precision_landing/H_info.h"
 #include "std_msgs/Bool.h"
+#include <dynamic_reconfigure/server.h>
+
+#include "precision_landing/CvParamsConfig.h"
+#include "precision_landing/H_info.h"
 
 #define ANGLE_THRESH 0.01
 #define PI 3.14159265
@@ -43,6 +46,7 @@ class HDetector {
         ros::Subscriber h_sub_image;
         ros::Subscriber h_sub_runner;
         bool runnin;
+        int cv_threshold;
     public:
         Mat warped; 
         HDetector();
@@ -51,6 +55,7 @@ class HDetector {
         void setArea(vpf contour, Mat frame);
         int getCenter_X();
         int getCenter_Y();
+        void config_callback(precision_landing::CvParamsConfig &config, uint32_t level);
 };
 
 HDetector::HDetector(){
@@ -211,12 +216,11 @@ bool HDetector::detect (Mat frame){
 
     // Images from the webcam are RGB, and not OpenCV's standard BGR
     cvtColor(frame, frame, CV_RGB2GRAY);
-    imshow("Test", frame);
-    waitKey(3);
+
     // Threshold removes noise from image
-    int thresh;
-    this->n.getParam("/cv_threshold", thresh);
-    threshold(frame, frame, thresh, 255, CV_THRESH_BINARY_INV);
+
+    //if(DEBUG) cout << this->cv_threshold << endl;
+    threshold(frame, frame, this->cv_threshold, 255, CV_THRESH_BINARY_INV);
     
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
     //adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
@@ -287,10 +291,21 @@ bool HDetector::detect (Mat frame){
     return detected;
 }
 
-// For testing
+void HDetector::config_callback(precision_landing::CvParamsConfig &config, uint32_t level){
+    cout << "Callback called" << endl;
+    this->cv_threshold = config.cv_threshold;
+}
+
 int main(int argc, char** arvg){
     ROS_INFO("Running H detection node!");
     ros::init(argc, arvg, "h_node");
     HDetector* detector = new HDetector();
+
+    dynamic_reconfigure::Server<precision_landing::CvParamsConfig> server;
+    dynamic_reconfigure::Server<precision_landing::CvParamsConfig>::CallbackType f;
+    f = boost::bind(&HDetector::config_callback, detector, _1, _2);
+    server.setCallback(f);
+
     ros::spin();
+    return 0;
 }

@@ -94,8 +94,7 @@ generate_messages(
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
 generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
+  cfg/Cv.cfg
 )
 
 ###################################
@@ -153,6 +152,8 @@ add_executable (h_node src/h.cpp)
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(h_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
+
+add_dependencies(h_node ${PROJECT_NAME}_gencfg)
 #############
 ## Install ##
 #############
