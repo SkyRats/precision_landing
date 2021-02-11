@@ -29,12 +29,12 @@ class HAutotune:
         average_center_x = 0
         average_center_y = 0
         detection_counter = 1
-        while not rospy.is_shutdown() and detection_counter < DETECTION_THRESH:
+        while not rospy.is_shutdown() and detection_counter < self.DETECTION_THRESH:
 
             # self.mav.hold(5)
             self.rate.sleep()
 
-            if self.detection.deteced:
+            if self.detection.detected:
 
                 if first:
                     average_center_x = self.detection.center_x
