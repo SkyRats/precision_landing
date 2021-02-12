@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+from dynamic_reconfigure.client import Client
 from precision_landing.msg import H_info
 from std_msgs.msg import Bool
 
@@ -12,18 +13,21 @@ class HAutotune:
     def __init__(self):
         self.running_state_pub = rospy.Publisher("/precision_landing/set_running_state", Bool, queue_size=10)
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
-        rospy.wait_for_message('/precision_landing/detection', H_info)
         # self.mav = mav
-        self.rate = rospy.Rate(60)
+        self.config_client = None
+        self.detection = None
+        self.rate = rospy.Rate(1)
 
     def run(self):
         self.start_h_node()
         self.tune_threshold()
 
     def tune_threshold(self):
-        while self.detection.detected == False:
-            threshold = rospy.get_param('/cv_threshold')
-            rospy.set_param('/cv_threshold', threshold+2)
+        new_threshold = 0
+        while self.detection is None:
+            self.config_client.update_configuration({"cv_threshold" : new_threshold})
+            new_threshold += 3
+            self.rate.sleep()
         
         first = True
         average_center_x = 0
@@ -48,14 +52,14 @@ class HAutotune:
                     and self.are_close(average_center_y, self.detection.center_y)):
                     detection_counter += 1
                 else:
-                    threshold = rospy.get_param('/cv_threshold')
-                    rospy.set_param('/cv_threshold', threshold-1)
+                    new_threshold -= 1
 
             else:
-                threshold = rospy.get_param('/cv_threshold')
-                rospy.set_param('/cv_threshold', threshold+1)
+                new_threshold += 1
 
-        rospy.loginfo('IDEAL THRESHOLD: ' + str(rospy.get_param('/cv_threshold')))
+            self.config_client.update_configuration({"cv_threshold" : new_threshold})
+            self.rate.sleep()
+        rospy.loginfo('IDEAL THRESHOLD: ' + str(new_threshold))
         # self.mav.land()
 
     def start_h_node(self):
@@ -80,5 +84,7 @@ if __name__ == '__main__':
     height = rospy.get_param('/height')
     # autotune = HAutotune(mav)
     autotune = HAutotune()
+    autotune.config_client = Client('h_node', timeout=30)
+    autotune.config_client.update_configuration({"cv_threshold" : 0})
     # mav.takeoff(height)
     autotune.run()
