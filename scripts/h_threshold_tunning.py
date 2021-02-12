@@ -5,8 +5,8 @@ from std_msgs.msg import Bool
 
 class HAutotune:
     
-    DETECTION_THRESH = 20
-    CLOSENESS_THRESH = 0.1
+    DETECTION_THRESH = 100
+    CLOSENESS_THRESH = 5
 
     # def __init__(self, mav):
     def __init__(self):
@@ -63,6 +63,12 @@ class HAutotune:
             self.running_state_pub.publish(Bool(True))
             # self.mav.rate.sleep()
             self.rate.sleep()
+
+    def are_close(self, x, y):
+        if abs(x-y) < self.CLOSENESS_THRESH:
+            return True
+        else:
+            return False
 
     def detection_callback(self, vector_data):
         self.detection = vector_data
