@@ -53,7 +53,7 @@ class HDetector {
 HDetector::HDetector(){
     this->h_pub = this->n.advertise<precision_landing::H_info>("/precision_landing/detection", 0);
     this->img_debug_pub = this->n.advertise<sensor_msgs::Image>("/precision_landing/debug/image_raw", 0);
-    this->h_sub_image = this->n.subscribe("/iris/usb_cam/image_raw", 5, &HDetector::image_cb, this);
+    this->h_sub_image = this->n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 5, &HDetector::image_cb, this);
     this->h_sub_runner = this->n.subscribe("/precision_landing/set_running_state",10, &HDetector::runnin_state_cb, this);
 }
 
@@ -286,10 +286,10 @@ bool HDetector::detect (Mat frame){
                 this->setArea(approx, frame);
             }
 
-            /* if(DEBUG){
-                if(detected == true) cout << "H detectado!" << endl;
-                else cout << endl;
-            } */
+            /*
+            if(detected == true) cout << "H detectado!" << endl;
+            else cout << endl;
+             */
 
         }
     }
