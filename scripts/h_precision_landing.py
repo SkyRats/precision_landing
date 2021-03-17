@@ -67,30 +67,36 @@ class PrecisionLanding():
             '''
      
             dist_of_one_pixel = (self.MAV.drone_pose.pose.position.z * math.tan(self.FOV/2))/(self.image_pixel_width/2)
+            rospy.logwarn("Distancia de um pixel")
+            rospy.logwarn(dist_of_one_pixel)
             x_dif = self.detection.center_y - (self.image_pixel_width/2)
             y_dif = self.detection.center_x - (self.image_pixel_height/2)
 
             self.H_pos_rel_x = x_dif * dist_of_one_pixel
             self.H_pos_rel_y = y_dif * dist_of_one_pixel
-
+            self.goal_x = self.MAV.drone_pose.pose.position.x - self.H_pos_rel_x
+            self.goal_y = self.MAV.drone_pose.pose.position.y - self.H_pos_rel_y 
             # DEBBUG
-            '''            
+                       
             rospy.loginfo("detection center x")
             rospy.loginfo(self.detection.center_x)
             rospy.loginfo("detection center y")
             rospy.loginfo(self.detection.center_y)  
-            
-
+            '''
             rospy.loginfo("x dif")
             rospy.loginfo(x_dif)
             rospy.loginfo("y dif")
             rospy.loginfo(y_dif)
-            
+            '''
             rospy.loginfo("x ")
             rospy.loginfo(self.H_pos_rel_x)
             rospy.loginfo("y")
             rospy.loginfo(self.H_pos_rel_y)
-            '''
+
+            rospy.loginfo("Goal x")
+            rospy.loginfo(self.goal_x)
+            rospy.loginfo("Goal y")
+            rospy.loginfo(self.goal_y)  
 
 
 
@@ -100,32 +106,29 @@ class PrecisionLanding():
         for i in range (10):
             self.cv_control_publisher.publish(Bool(True))
             self.MAV.rate.sleep()
-        self.MAV.hold(3)
         self.calculate_h_position()   
-        goal_x = self.MAV.drone_pose.pose.position.x - self.H_pos_rel_x
-        goal_y = self.MAV.drone_pose.pose.position.y - self.H_pos_rel_y 
-        goal_z = self.MAV.drone_pose.pose.position.z
-        while not rospy.is_shutdown() :
-            self.MAV.set_position(goal_x, goal_y, goal_z)
+        self.MAV.set_position(self.goal_x, self.goal_y, 1)
+        for i in range(150):
+            self.MAV.set_position(self.goal_x, self.goal_y, 1)
             self.MAV.rate.sleep()
+        #self.MAV.hold(2)
+        '''rospy.wait_for_message("/precision_landing/detection", H_info)
+        self.calculate_h_position()
+        for i in range(100):
+            self.MAV.set_position(self.goal_x, self.goal_y, 0.5)
+            self.MAV.rate.sleep()  '''        
+        self.MAV.land()
 
 if __name__ == "__main__":
     rospy.init_node('precision_landing')
     drone = MAV("Robinho")
     c = PrecisionLanding(drone)
-    c.MAV.takeoff(3)
-    initial_height = 3
+    rospy.loginfo("X")
+    rospy.loginfo(c.MAV.drone_pose.pose.position.x)
+    rospy.loginfo("Y")
+    rospy.loginfo(c.MAV.drone_pose.pose.position.y)
+    rospy.loginfo("Z")
+    rospy.loginfo(c.MAV.drone_pose.pose.position.z)
+    c.MAV.takeoff(2)
+    initial_height = 2
     c.run(initial_height)
-
-    ''' rospy.loginfo("H angle of one pixel")
-    rospy.loginfo(h_angle_of_one_pixel)
-    rospy.loginfo("V angle of one pixel")
-    rospy.loginfo(v_angle_of_one_pixel)
-    rospy.loginfo("detection center x")
-    rospy.loginfo(self.detection.center_x)
-    rospy.loginfo("detection center y")
-    rospy.loginfo(self.detection.center_y)
-    rospy.loginfo("x dif")
-    rospy.loginfo(x_dif)
-    rospy.loginfo("y dif")
-    rospy.loginfo(y_dif)'''
