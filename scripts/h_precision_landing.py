@@ -21,7 +21,7 @@ class PrecisionLanding():
         self.cv_control_publisher = rospy.Publisher("/precision_landing/set_running_state", Bool, queue_size=10)
 
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
-
+        self.tol = 0.05
         #Cam Params
         self.image_pixel_width = 320.0
         self.image_pixel_height = 240.0
@@ -106,13 +106,14 @@ class PrecisionLanding():
         for i in range (10):
             self.cv_control_publisher.publish(Bool(True))
             self.MAV.rate.sleep()
-        self.calculate_h_position()   
-        self.MAV.set_position(self.goal_x, self.goal_y, 1)
-        for i in range(150):
-            self.MAV.set_position(self.goal_x, self.goal_y, 1)
-            self.MAV.rate.sleep()
-        #self.MAV.hold(2)
-        '''rospy.wait_for_message("/precision_landing/detection", H_info)
+        self.MAV.hold(3)
+        self.calculate_h_position() 
+        self.MAV.set_position(self.goal_x - 0.2, self.goal_y + 0.5, 0.1)
+        while not self.MAV.chegou():
+            self.MAV.set_position(self.goal_x - 0.2, self.goal_y + 0.5 , 0.1)
+            self.MAV.rate.sleep()  
+    
+        '''
         self.calculate_h_position()
         for i in range(100):
             self.MAV.set_position(self.goal_x, self.goal_y, 0.5)
@@ -129,6 +130,6 @@ if __name__ == "__main__":
     rospy.loginfo(c.MAV.drone_pose.pose.position.y)
     rospy.loginfo("Z")
     rospy.loginfo(c.MAV.drone_pose.pose.position.z)
-    c.MAV.takeoff(2)
-    initial_height = 2
+    c.MAV.takeoff(3)
+    initial_height = 3
     c.run(initial_height)
