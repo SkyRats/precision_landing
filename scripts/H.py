@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+from os.path import join
 
 import numpy as np
 from PIL import Image
@@ -25,10 +27,10 @@ if gpus:
     print(e)
 
 class HMaskModel:
-    def __init__(self, input_shape, filters, kernel_sizes, strides, activation, use_batch_norm=False):    
+    def __init__(self, input_shape):    
         self.output_channels = 1
         self.input_shape = input_shape
-        self.model = self.define_model(input_shape, filters, kernel_sizes, strides, activation, use_batch_norm)
+        self.model = None
         self.history = None
         self.test_performance = None
 
@@ -37,7 +39,7 @@ class HMaskModel:
     ## Padding
     ## Função de perda
     ## Otimizador
-    def define_model(self, input_shape, filters, kernel_sizes, strides, activation, use_batch_norm):
+    def define_model(self, filters, kernel_sizes, strides, activation, use_batch_norm):
 
         def downsample():
             down_model = keras.Sequential()
@@ -46,8 +48,8 @@ class HMaskModel:
                     filters[i],
                     kernel_sizes[i],
                     strides=strides[i],
-                    activation=activation,
                     padding='same'))
+                down_model.add(layers.PReLU())
                 if use_batch_norm:
                     down_model.add(layers.BatchNormalization())
             return down_model
@@ -65,8 +67,8 @@ class HMaskModel:
                     filters[reverse_index],
                     kernel_sizes[reverse_index],
                     strides=strides[reverse_index],
-                    activation=activation,
                     padding='same'))
+                up_model.add(layers.PReLU())
                 if use_batch_norm:
                     up_model.add(layers.BatchNormalization())
             return up_model
@@ -77,7 +79,7 @@ class HMaskModel:
                                             padding='same',
                                             activation='sigmoid')
 
-        inputs = layers.Input(shape=input_shape)
+        inputs = layers.Input(shape=self.input_shape)
         model = downsample()(inputs)
         model = upsample()(model)
         model = last_layer(model)
@@ -107,6 +109,12 @@ class HMaskModel:
             test_inputs, test_masks,
             callbacks=callbacks,
         )
+
+    def save(self, save_path):
+        self.model.save(save_path)
+
+    def load(self, save_path):
+        self.model = keras.models.load_model(save_path)
 
     def show_mask_from_image(self, image):
         mask = self.model(image, training=False)
@@ -138,13 +146,13 @@ class HMaskModel:
 
 
 def load_images_for_model(path, train_limit=None, test_limit=None):
-    train = load_images_from_folder(os.path.join(path, 'training'), train_limit)
-    test = load_images_from_folder(os.path.join(path, 'testing'), test_limit)
+    train = load_images_from_folder(join(path, 'training'), train_limit)
+    test = load_images_from_folder(join(path, 'testing'), test_limit)
     return train, test
 
 def load_images_from_folder(path, limit):
-    input_path = os.path.join(path, 'inputs', 'data')
-    mask_path = os.path.join(path, 'masks', 'data')
+    input_path = join(path, 'inputs', 'data')
+    mask_path = join(path, 'masks', 'data')
     files = [file[3:] for file in os.listdir(input_path) 
              if os.path.splitext(file)[1] == '.png']
     inputs = []
@@ -154,8 +162,8 @@ def load_images_from_folder(path, limit):
         limit = len(files)
     for i in range(limit):
         file = files[i]
-        input_ = Image.open(os.path.join(input_path, 'Tr-'+file)).convert('L')
-        mask = Image.open(os.path.join(mask_path, 'Tes-'+file)).convert('L')
+        input_ = Image.open(join(input_path, 'Tr-'+file)).convert('L')
+        mask = Image.open(join(mask_path, 'Tes-'+file)).convert('L')
 
         input_np = np.asarray(input_)/255.0
         mask_np = np.asarray(mask)/255.0
@@ -179,7 +187,7 @@ def load_images_from_folder(path, limit):
 
 if __name__ == '__main__':
 
-    LOAD_LIMIT = None
+    LOAD_LIMIT = 6000
     TRAINING_BATCH_SIZE = 4
     TRAINING_EPOCHS = 20
     FILTERS = [32, 64]
@@ -190,10 +198,12 @@ if __name__ == '__main__':
     USE_BATCH_NORM = False
     STRIDES = [(2, 2),  (2, 2)]
     TEST_IMAGE_FILENAME = 'Tr-137.png'
+    MODEL_SAVE_PATH = 'models'
 
     (train_inputs, train_masks), (test_inputs, test_masks) = load_images_for_model('Images', LOAD_LIMIT)
     
-    h_mask_model = HMaskModel(INPUT_SHAPE, FILTERS, KERNEL_SIZES, STRIDES, ACTIVATION_FUNCTION, USE_BATCH_NORM)
+    h_mask_model = HMaskModel(INPUT_SHAPE)
+    h_mask_model.define_model(FILTERS, KERNEL_SIZES, STRIDES, ACTIVATION_FUNCTION, USE_BATCH_NORM)
     h_mask_model.model.summary()
 
     train_masks = np.where(train_masks > 0.5, 1, 0)
@@ -204,7 +214,7 @@ if __name__ == '__main__':
         test_inputs, test_masks,
         TRAINING_BATCH_SIZE, TRAINING_EPOCHS)
 
-    test_image_path = os.path.join('Images', 'testing', 'inputs', 'data', TEST_IMAGE_FILENAME)
+    test_image_path = join('Images', 'testing', 'inputs', 'data', TEST_IMAGE_FILENAME)
     pgm_test_image_path = 'an2i_left_angry_sunglasses_4.pgm'
     image = Image.open(pgm_test_image_path).resize((INPUT_SHAPE[0], INPUT_SHAPE[1])).convert('L')
     image_np = np.asarray(image).T
@@ -215,3 +225,5 @@ if __name__ == '__main__':
     # end gambiarra
     image_np = np.reshape(image_np, (-1, INPUT_SHAPE[0], INPUT_SHAPE[1], 1))
     h_mask_model.show_mask_from_image(image_np)
+    current_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    h_mask_model.save(join(MODEL_SAVE_PATH, current_datetime))
