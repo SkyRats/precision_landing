@@ -3,13 +3,13 @@ from datetime import datetime
 from os.path import join
 
 import numpy as np
+import pandas as pd
 from PIL import Image
 from matplotlib import pyplot as plt
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.metrics import Accuracy, Precision, Recall
 
 MAX_GPU_MEM_IN_GB = 4
@@ -84,12 +84,12 @@ class HMaskModel:
         model = upsample()(model)
         model = last_layer(model)
 
-        return keras.Model(inputs=inputs, outputs=model)
+        self.model = keras.Model(inputs=inputs, outputs=model)
 
     def train(self, 
               train_inputs, train_masks, 
-              test_inputs, test_masks,
-              batch_size, epochs, callbacks=None):
+              batch_size, epochs, validation_split,
+              callbacks=None):
         
         self.model.compile(
             optimizer='adam', 
@@ -101,13 +101,15 @@ class HMaskModel:
             train_inputs, train_masks,
             epochs=epochs,
             callbacks=callbacks,
-            batch_size=batch_size
+            batch_size=batch_size,
+            validation_split=validation_split,
         ).history
 
     def test(self, test_inputs, test_masks, callbacks=None):
         self.test_performance = self.model.evaluate(
             test_inputs, test_masks,
             callbacks=callbacks,
+            return_dict=True,
         )
 
     def save(self, save_path):
@@ -167,14 +169,6 @@ def load_images_from_folder(path, limit):
 
         input_np = np.asarray(input_)/255.0
         mask_np = np.asarray(mask)/255.0
-
-        # entity gambiarra is
-        ## input_np = input_np[:, 1:]
-        ## mask_np = mask_np[:, 1:]
-        ## two_zero_rows = np.zeros((2,52))
-        ## input_np = np.concatenate((input_np, two_zero_rows), axis=0)
-        ## mask_np = np.concatenate((mask_np, two_zero_rows), axis=0)
-        # end gambiarra
         
         inputs.append(input_np.T)
         masks.append(mask_np.T)
@@ -186,19 +180,29 @@ def load_images_from_folder(path, limit):
     return inputs, masks
 
 if __name__ == '__main__':
+    current_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    LOAD_LIMIT = 6000
+    LOAD_LIMIT = 60
     TRAINING_BATCH_SIZE = 4
     TRAINING_EPOCHS = 20
     FILTERS = [32, 64]
     KERNEL_SIZES = [13, 13]
     INPUT_SHAPE = (64, 64, 1)
-    VALIDATION_SPLIT = 0.2 # TODO
-    ACTIVATION_FUNCTION = 'sigmoid'
+    VALIDATION_SPLIT = 0.2
+    ACTIVATION_FUNCTION = None
     USE_BATCH_NORM = False
     STRIDES = [(2, 2),  (2, 2)]
+
     TEST_IMAGE_FILENAME = 'Tr-137.png'
+
+    EXPERIMENT_DIR = 'initial'
+    EXPERIMENT_SUFFIX = '60_images'
+
     MODEL_SAVE_PATH = 'models'
+    TRAINING_HISTORY_SAVE_DIR = (
+        join('results', EXPERIMENT_DIR, 'training'))
+    TESTING_HISTORY_SAVE_DIR  = (
+        join('results', EXPERIMENT_DIR, 'testing'))
 
     (train_inputs, train_masks), (test_inputs, test_masks) = load_images_for_model('Images', LOAD_LIMIT)
     
@@ -211,19 +215,35 @@ if __name__ == '__main__':
 
     h_mask_model.train(
         train_inputs, train_masks, 
-        test_inputs, test_masks,
-        TRAINING_BATCH_SIZE, TRAINING_EPOCHS)
+        TRAINING_BATCH_SIZE, TRAINING_EPOCHS,
+        VALIDATION_SPLIT)
 
+    h_mask_model.test(
+        test_inputs, test_masks)
+
+    # Save a test images
     test_image_path = join('Images', 'testing', 'inputs', 'data', TEST_IMAGE_FILENAME)
     pgm_test_image_path = 'an2i_left_angry_sunglasses_4.pgm'
     image = Image.open(pgm_test_image_path).resize((INPUT_SHAPE[0], INPUT_SHAPE[1])).convert('L')
     image_np = np.asarray(image).T
-    # entity gambiarra is
-    ## image_np = image_np[1:, :]
-    ## two_zero_rows = np.zeros((52,2))
-    ## image_np = np.concatenate((image_np, two_zero_rows), axis=1)
-    # end gambiarra
     image_np = np.reshape(image_np, (-1, INPUT_SHAPE[0], INPUT_SHAPE[1], 1))
     h_mask_model.show_mask_from_image(image_np)
-    current_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
+    # Save model
     h_mask_model.save(join(MODEL_SAVE_PATH, current_datetime))
+
+    # Save model results
+    os.makedirs(TRAINING_HISTORY_SAVE_DIR,
+                exist_ok=True)
+    os.makedirs(TESTING_HISTORY_SAVE_DIR,
+                exist_ok=True)
+
+    training_history_df = pd.DataFrame(h_mask_model.history)
+    with open(join(TRAINING_HISTORY_SAVE_DIR, current_datetime+'-'+EXPERIMENT_SUFFIX+'.csv'),
+              mode='w') as f:
+        training_history_df.to_csv(f)
+
+    testing_history_df = pd.DataFrame(h_mask_model.test_performance, index=[0])
+    with open(join(TESTING_HISTORY_SAVE_DIR, current_datetime+'-'+EXPERIMENT_SUFFIX+'.csv'),
+              mode='w') as f:
+        testing_history_df.to_csv(f)

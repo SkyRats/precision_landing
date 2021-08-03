@@ -1,0 +1,14 @@
+.vscode
+*.code-workspace
+
+__pycache__
+*.pyc
+
+*.zip
+*.png
+*.pgm
+
+dummy/
+faces/
+Images/
+models/
