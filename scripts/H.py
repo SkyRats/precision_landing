@@ -118,11 +118,12 @@ class HMaskModel:
     def load(self, save_path):
         self.model = keras.models.load_model(save_path)
 
-    def show_mask_from_image(self, image):
+    def show_mask_from_image(self, image, filepath='image_mask'):
         mask = self.model(image, training=False)
         fig, ax = plt.subplots(nrows=1, ncols=2)
         self.plot_image_and_mask(image, ax[0], mask, ax[1])
-        fig.savefig('image_mask')
+        fig.savefig(filepath)
+        plt.close(fig)
 
     def show_masks_from_images(self, images, batch_size):
         masks = self.model.predict(
@@ -173,6 +174,8 @@ def load_images_from_folder(path, limit):
         inputs.append(input_np.T)
         masks.append(mask_np.T)
 
+        input_.close()
+        mask.close()
 
     inputs = np.stack(inputs)
     masks = np.stack(masks)
@@ -182,7 +185,7 @@ def load_images_from_folder(path, limit):
 if __name__ == '__main__':
     current_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    LOAD_LIMIT = 60
+    LOAD_LIMIT = 6000
     TRAINING_BATCH_SIZE = 4
     TRAINING_EPOCHS = 20
     FILTERS = [32, 64]
@@ -193,10 +196,10 @@ if __name__ == '__main__':
     USE_BATCH_NORM = False
     STRIDES = [(2, 2),  (2, 2)]
 
-    TEST_IMAGE_FILENAME = 'Tr-137.png'
+    TEST_IMAGE_DIR = 'test_images'
 
-    EXPERIMENT_DIR = 'initial'
-    EXPERIMENT_SUFFIX = '60_images'
+    EXPERIMENT_DIR = 'test_image_generation'
+    EXPERIMENT_SUFFIX = '6000_images'
 
     MODEL_SAVE_PATH = 'models'
     TRAINING_HISTORY_SAVE_DIR = (
@@ -222,12 +225,16 @@ if __name__ == '__main__':
         test_inputs, test_masks)
 
     # Save a test images
-    test_image_path = join('Images', 'testing', 'inputs', 'data', TEST_IMAGE_FILENAME)
-    pgm_test_image_path = 'an2i_left_angry_sunglasses_4.pgm'
-    image = Image.open(pgm_test_image_path).resize((INPUT_SHAPE[0], INPUT_SHAPE[1])).convert('L')
-    image_np = np.asarray(image).T
-    image_np = np.reshape(image_np, (-1, INPUT_SHAPE[0], INPUT_SHAPE[1], 1))
-    h_mask_model.show_mask_from_image(image_np)
+    os.makedirs(TEST_IMAGE_DIR, exist_ok=True)
+    for i, test_input in enumerate(test_inputs):
+        # entity gambiarra is
+        if i == 100:
+            break
+        # end entity gambiarra;
+        test_input = np.reshape(test_input, (-1, INPUT_SHAPE[0], INPUT_SHAPE[1], 1))
+        h_mask_model.show_mask_from_image(
+            test_input,
+            join(TEST_IMAGE_DIR, str(i)))
 
     # Save model
     h_mask_model.save(join(MODEL_SAVE_PATH, current_datetime))
