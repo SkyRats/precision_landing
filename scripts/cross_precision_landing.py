@@ -1,36 +1,39 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import rospy
 import math
 import time
 import numpy as np
 
-from mavbase.MAV import MAV
+from MRS_MAV import MRS_MAV
 from precision_landing.msg import H_info
-from geometry_msgs.msg import TwistStamped, PoseStamped
+import mrs_msgs
+from mrs_msgs import srv
+from mrs_msgs.msg import PositionCommand, Reference
+from mrs_msgs.srv import TrajectoryReferenceSrv, ReferenceStampedSrv
+import std_srvs
+from std_srvs import srv
+from std_srvs.srv import Trigger
 from std_msgs.msg import Bool
-from dynamic_reconfigure.server import Server
-from precision_landing.cfg import ControllerConfig
 
 
 class PrecisionLanding():
-    def __init__(self,MAV):
+    def __init__(self,MRS_MAV):
         # ROS setup
         self.rate = rospy.Rate(60)
-        self.MAV = MAV
+        self.MAV = MRS_MAV
 
         self.cv_control_publisher = rospy.Publisher("/precision_landing/set_running_state", Bool, queue_size=10)
 
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
         self.tol = 0.05
         #Cam Params
-        self.image_pixel_width = 320.0
-        self.image_pixel_height = 240.0
-        self.FOV = 1.047 # Horizontal Field of View in rad
-         
+        self.image_pixel_width = 752.0
+        self.image_pixel_height = 480.0
+        self.FOV = 0.8576 # Horizontal Field of View in rad 49.13434
 
         # Attributes
         self.detection = H_info()
-        
+        self.last_time = time.time()
 
 
     def running_callback(self, bool):
@@ -65,8 +68,8 @@ class PrecisionLanding():
             SAbendo a distancia cobrida pela imagem e a qualtidade de pixeis na horizontal,
             conseguimos saber a distancia que cada pixel cobre (dist_of_one_pixel)
             '''
-     
-            dist_of_one_pixel = (self.MAV.drone_pose.pose.position.z * math.tan(self.FOV/2))/(self.image_pixel_width/2)
+            rospy.logwarn(self.MAV.controller_data.position.z )
+            dist_of_one_pixel = (self.MAV.controller_data.position.z * math.tan(self.FOV/2))/(self.image_pixel_width/2)
             rospy.logwarn("Distancia de um pixel")
             rospy.logwarn(dist_of_one_pixel)
             x_dif = self.detection.center_y - (self.image_pixel_width/2)
@@ -74,20 +77,20 @@ class PrecisionLanding():
 
             self.H_pos_rel_x = x_dif * dist_of_one_pixel
             self.H_pos_rel_y = y_dif * dist_of_one_pixel
-            self.goal_x = self.MAV.drone_pose.pose.position.x - self.H_pos_rel_x
-            self.goal_y = self.MAV.drone_pose.pose.position.y - self.H_pos_rel_y 
+            self.goal_x = self.MAV.controller_data.position.x - self.H_pos_rel_x
+            self.goal_y = self.MAV.controller_data.position.y - self.H_pos_rel_y 
             # DEBBUG
-                       
+                     
             rospy.loginfo("detection center x")
             rospy.loginfo(self.detection.center_x)
             rospy.loginfo("detection center y")
             rospy.loginfo(self.detection.center_y)  
-            '''
+            
             rospy.loginfo("x dif")
             rospy.loginfo(x_dif)
             rospy.loginfo("y dif")
             rospy.loginfo(y_dif)
-            '''
+            
             rospy.loginfo("x ")
             rospy.loginfo(self.H_pos_rel_x)
             rospy.loginfo("y")
@@ -97,39 +100,25 @@ class PrecisionLanding():
             rospy.loginfo(self.goal_x)
             rospy.loginfo("Goal y")
             rospy.loginfo(self.goal_y)  
+            
 
 
 
 
-
-    def run(self,initial_height):
+    def run(self):
         for i in range (10):
             self.cv_control_publisher.publish(Bool(True))
-            self.MAV.rate.sleep()
-        self.MAV.hold(3)
+            print("Ligando codigo de deteccao da cruz")
+            self.rate.sleep()
+        time.sleep(3)
         self.calculate_h_position() 
-        self.MAV.set_position(self.goal_x - 0.2, self.goal_y + 0.5, 0.1)
-        while not self.MAV.chegou():
-            self.MAV.set_position(self.goal_x - 0.2, self.goal_y + 0.5 , 0.1)
-            self.MAV.rate.sleep()  
-    
-        '''
-        self.calculate_h_position()
-        for i in range(100):
-            self.MAV.set_position(self.goal_x, self.goal_y, 0.5)
-            self.MAV.rate.sleep()  '''        
+        self.MAV.set_position(self.goal_x, self.goal_y, 2)
+        print("Supostamente em cima da cruz")
+        rospy.spin()
         self.MAV.land()
 
 if __name__ == "__main__":
-    rospy.init_node('precision_landing')
-    drone = MAV("Robinho")
+    rospy.init_node('cross_precision_landing')
+    drone = MRS_MAV("uav1")
     c = PrecisionLanding(drone)
-    rospy.loginfo("X")
-    rospy.loginfo(c.MAV.drone_pose.pose.position.x)
-    rospy.loginfo("Y")
-    rospy.loginfo(c.MAV.drone_pose.pose.position.y)
-    rospy.loginfo("Z")
-    rospy.loginfo(c.MAV.drone_pose.pose.position.z)
-    c.MAV.takeoff(3)
-    initial_height = 3
-    c.run(initial_height)
+    c.run()

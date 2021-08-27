@@ -40,6 +40,7 @@ class HDetector {
         ros::Subscriber h_sub_image;
         ros::Subscriber h_sub_runner;
         bool runnin;
+        
     public:
         Mat warped; 
         HDetector();
@@ -48,12 +49,13 @@ class HDetector {
         void setArea(vpf contour, Mat frame);
         int getCenter_X();
         int getCenter_Y();
+        
 };
 
 HDetector::HDetector(){
     this->h_pub = this->n.advertise<precision_landing::H_info>("/precision_landing/detection", 0);
     this->img_debug_pub = this->n.advertise<sensor_msgs::Image>("/precision_landing/debug/image_raw", 0);
-    this->h_sub_image = this->n.subscribe("/iris_fpv_cam/usb_cam/image_raw", 5, &HDetector::image_cb, this);
+    this->h_sub_image = this->n.subscribe("/uav1/bluefox_optflow/image_raw", 5, &HDetector::image_cb, this);
     this->h_sub_runner = this->n.subscribe("/precision_landing/set_running_state",10, &HDetector::runnin_state_cb, this);
 }
 
@@ -87,6 +89,7 @@ void HDetector::runnin_state_cb(std_msgs::Bool data){
 
 void HDetector::image_cb(const sensor_msgs::ImageConstPtr& img){
     if(this->runnin){
+
         cv_bridge::CvImagePtr cv_ptr;
         try{
             cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::BGR8);
@@ -97,12 +100,15 @@ void HDetector::image_cb(const sensor_msgs::ImageConstPtr& img){
         }
 
         precision_landing::H_info msg;
-
         if (this->detect(cv_ptr->image)){
             msg.detected = true;
             msg.center_x = this->getCenter_X();
             msg.center_y = this->getCenter_Y();
             msg.area_ratio = this->getArea();
+            cout << "Centro em x: " << msg.center_x << endl;
+            cout << "Centro em y: " << msg.center_y << endl;
+            cout << "Area ratio " << msg.area_ratio << endl;
+
             this->h_pub.publish(msg);
         }
         
@@ -161,7 +167,7 @@ float HDetector::angle(Point2f v1, Point2f v2, Point2f relative){
 right orientation, using ANGLE_THRESH */
 bool HDetector::angle_check(vpf pts){
     
-    int bitmasks[8] = {2145,195,390,780,1560,3120};
+    int bitmasks[8] = {3510, 2925, 1755, 585, 1170, 2340};
     int current_bm = 0;
 
     float a = 0;
@@ -201,24 +207,26 @@ int HDetector::getCenter_Y(){
 // Takes an image 'frame' and detects whether it contains the letter H
 bool HDetector::detect (Mat frame){
     bool detected = false;
-    //("Entrou no detect");
     
     // if(DEBUG) Mat frame2 = frame;
     
-    cvtColor(frame, frame, CV_BGR2GRAY);
+    cvtColor(frame, frame, CV_BGR2HSV);
     // Blur and threshold remove noise from image
 
-    threshold(frame, frame, 115, 255, 1);
+    inRange(frame, Scalar(10, 240, 240), Scalar(40, 255, 255), frame);
     adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY_INV, 9, 20.0);
     adaptiveThreshold(frame, frame, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 3, 0.0);
-    
+    imshow("frame", frame);
+    int k = waitKey(3); // Wait for a keystroke in the window
+
     vector<vp> contour;
     findContours(frame, contour, RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
-    /* if(DEBUG){
-        imshow("Lines", frame2);
+     if(DEBUG){
         imshow("Processed", frame);
-    } */
+        int kk = waitKey(3); // Wait for a keystroke in the window
+
+    } 
 
     for(vp cnt : contour){
 
@@ -269,17 +277,11 @@ bool HDetector::detect (Mat frame){
             vpf transformed;
             perspectiveTransform(approx, transformed, perspective);
 
-            /* if(DEBUG){ 
+            if(DEBUG){ 
                 imshow("warped", frame);
-                // Shows captures edge of H in black
-                circle(frame2, this->edge_pts[0], 3, (255,0,0), 3 );
-                circle(frame2, this->edge_pts[1], 3, (255,0,0), 3 );
-                circle(frame2, this->edge_pts[2], 3, (255,0,0), 3 );                
-                circle(frame2, this->edge_pts[3], 3, (255,0,0), 3 );
-                // Draws bound
-                rectangle(frame2, bounds, (0,255,0));
-                imshow("Lines", frame2);
-            } */
+                int k = waitKey(3); // Wait for a keystroke in the window
+
+            } 
 
             if (angle_check(approx)){
                 detected = true;
@@ -298,8 +300,8 @@ bool HDetector::detect (Mat frame){
 
 // For testing
 int main(int argc, char** arvg){
-    ROS_INFO("Running H detection node!");
-    ros::init(argc, arvg, "h_node");
+    ROS_INFO("Running cross detection node!");
+    ros::init(argc, arvg, "cross_node");
     HDetector* detector = new HDetector();
     ros::spin();
 }

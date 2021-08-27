@@ -17,7 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
 )
-find_package(OpenCV 3.2 REQUIRED)
+find_package(OpenCV 4.2 REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -137,7 +137,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/viscon_node.cpp)
-add_executable (h_node src/h.cpp)
+add_executable (cross_node src/cross.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -152,7 +152,7 @@ add_executable (h_node src/h.cpp)
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(h_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(cross_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
 #############
 ## Install ##
 #############
