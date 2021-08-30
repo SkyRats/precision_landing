@@ -134,21 +134,18 @@ bool HDetector::detect(Mat frame)
 {
   bool detected = false;
 
-  Mat hsvFrame;
+  Mat hsvFrame, maskFrame, maskChannels[3];
   cvtColor(frame, hsvFrame, COLOR_BGR2HSV);
   // Blur and threshold remove noise from image
   medianBlur(hsvFrame, hsvFrame, 11);
   // inRange(hsvFrame, Scalar(30, 150, 0), Scalar(70, 255, 255), hsvFrame);
-  inRange(hsvFrame, Scalar(0, 0, 0), Scalar(255, 255, 255), hsvFrame);
+  inRange(hsvFrame, Scalar(30, 150, 0), Scalar(70, 255, 255), maskFrame);
 
-  Mat hsvChannels[3];
-  split(hsvFrame, hsvChannels);
-  Mat grayFrame = hsvChannels[2];
+  if (!maskFrame.empty())
+    imshow("mask", maskFrame);
 
   vector<vp> contours;
-  vector<vp> hierarchy;
-
-  findContours(grayFrame, contours, RETR_TREE, CHAIN_APPROX_SIMPLE);
+  findContours(maskFrame, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
 
   int max_w = 0,
       max_h = 0, max_x = 0, max_y = 0;
@@ -167,22 +164,6 @@ bool HDetector::detect(Mat frame)
     }
     rectangle(frame, Point(rect.x, rect.y), Point(rect.x + rect.width, rect.y + rect.height), Scalar(0, 255, 0), 1);
   }
-  cout << (int)contours.size() << endl;
-
-  // for (int i = 0; i < (int)contours.size(); i++)
-  // {
-  //   vp cnt = contours[i];
-  //   cout << "Hello world!" << endl;
-  //   rect = boundingRect(cnt);
-  //   if (rect.width * rect.height > max_w * max_h)
-  //   {
-  //     max_w = rect.width;
-  //     max_h = rect.height;
-  //     max_x = rect.x;
-  //     max_y = rect.y;
-  //   }
-  //   rectangle(frame, Point(rect.x, rect.y), Point(rect.x + rect.width, rect.y + rect.height), Scalar(0, 255, 0), 1);
-  // }
 
   rectangle(frame, Point(max_x, max_y),
             Point(max_x + max_w, max_y + max_h), Scalar(0, 0, 255), 2);
@@ -193,13 +174,12 @@ bool HDetector::detect(Mat frame)
 
   if (DEBUG)
   {
-    imshow("Processed", grayFrame);
+    imshow("Processed", maskFrame);
     waitKey(3); // Wait for a keystroke in the window
   }
   cout << max_w * max_h << endl;
   if (max_w * max_h > frame.rows * frame.cols * AREA_THRESH)
   {
-    cout << "Dentro do if" << endl;
     detected = true;
     this->setCenterX(max_x + max_w / 2);
     this->setCenterY(max_y + max_h / 2);

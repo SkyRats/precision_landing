@@ -141,6 +141,6 @@ if __name__ == "__main__":
     rospy.init_node('precision_landing')
     drone = MAV("Robinho")
     c = PrecisionLanding(drone)
-    c.MAV.takeoff(1)
+    c.MAV.takeoff(8)
     initial_height = 2
     c.run(initial_height)
