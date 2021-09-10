@@ -134,11 +134,14 @@ bool HDetector::detect(Mat frame)
 {
   bool detected = false;
 
-  Mat hsvFrame, maskFrame, maskChannels[3];
-  cvtColor(frame, hsvFrame, COLOR_BGR2HSV);
+  Mat hsvFrame, maskFrame, maskChannels[3], bgrFrame;
+  //cvtColor(frame, hsvFrame, COLOR_BGR2HSV);
   // Blur and threshold remove noise from image
   // medianBlur(hsvFrame, hsvFrame, 11);
-  GaussianBlur(hsvFrame, hsvFrame, Size(9, 9), 1.0);
+  // GaussianBlur(hsvFrame, hsvFrame, Size(9, 9), 1.0);
+  bilateralFilter(frame, bgrFrame, 15, 50, 50);
+  cvtColor(bgrFrame, hsvFrame, COLOR_BGR2HSV);
+  imshow("Blur", hsvFrame);
   // inRange(hsvFrame, Scalar(30, 150, 0), Scalar(70, 255, 255), hsvFrame);
   inRange(hsvFrame, Scalar(25, 0, 0), Scalar(35, 255, 255), maskFrame);
 
