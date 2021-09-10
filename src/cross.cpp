@@ -137,9 +137,10 @@ bool HDetector::detect(Mat frame)
   Mat hsvFrame, maskFrame, maskChannels[3];
   cvtColor(frame, hsvFrame, COLOR_BGR2HSV);
   // Blur and threshold remove noise from image
-  medianBlur(hsvFrame, hsvFrame, 11);
+  // medianBlur(hsvFrame, hsvFrame, 11);
+  GaussianBlur(hsvFrame, hsvFrame, Size(9, 9), 1.0);
   // inRange(hsvFrame, Scalar(30, 150, 0), Scalar(70, 255, 255), hsvFrame);
-  inRange(hsvFrame, Scalar(30, 150, 0), Scalar(70, 255, 255), maskFrame);
+  inRange(hsvFrame, Scalar(25, 0, 0), Scalar(35, 255, 255), maskFrame);
 
   if (!maskFrame.empty())
     imshow("mask", maskFrame);
@@ -153,7 +154,6 @@ bool HDetector::detect(Mat frame)
 
   for (vp cnt : contours)
   {
-    cout << "Hello world!" << endl;
     rect = boundingRect(cnt);
     if (rect.width * rect.height > max_w * max_h)
     {
@@ -168,7 +168,7 @@ bool HDetector::detect(Mat frame)
   rectangle(frame, Point(max_x, max_y),
             Point(max_x + max_w, max_y + max_h), Scalar(0, 0, 255), 2);
   circle(frame, Point((max_x + max_w / 2), (max_y + max_h / 2)),
-         50, (0, 0, 255), 3);
+         1, (0, 0, 255), 3);
   imshow("frame", frame);
   waitKey(3); // Wait for a keystroke in the window
 
@@ -177,7 +177,7 @@ bool HDetector::detect(Mat frame)
     imshow("Processed", maskFrame);
     waitKey(3); // Wait for a keystroke in the window
   }
-  cout << max_w * max_h << endl;
+  // cout << max_w * max_h << endl;
   if (max_w * max_h > frame.rows * frame.cols * AREA_THRESH)
   {
     detected = true;
