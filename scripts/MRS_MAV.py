@@ -5,6 +5,7 @@ import mrs_msgs
 from mrs_msgs import srv
 from mrs_msgs.msg import PositionCommand, Reference, TrajectoryReference
 from mrs_msgs.srv import TrajectoryReferenceSrv, ReferenceStampedSrv
+from geometry_msgs.msg import Vector3
 import std_srvs
 from std_srvs import srv
 from std_srvs.srv import Trigger
@@ -17,11 +18,16 @@ TOL = 0.1
 class MRS_MAV:
     def __init__(self, mav_name):
         self.rate = rospy.Rate(60)
-        self.controller_data = PositionCommand()
-        self.position_controller = Reference()
+        self.hz = 60
+        self.controller_data = PositionCommand() #variavel manipulada -> mostra a acao do controle
+        self.position_controller = Reference()   #Input aqui a referencia do controlador -> para onde ele quer ir
         self.trajectory = TrajectoryReference()
         self.mav_name = mav_name
-        
+        self.vel_x = 0
+        self.vel_y = 0
+        self.vel_z = 0
+        self.cont = 0
+
         ############# Services #############
         self.reference = rospy.ServiceProxy("/" + mav_name + "/control_manager/reference", ReferenceStampedSrv)
 
@@ -36,11 +42,17 @@ class MRS_MAV:
 
         ########## Subscribers #############
         controller_sub = rospy.Subscriber("/" + mav_name + "/control_manager/position_cmd", PositionCommand, self.controller_callback)
+        vel_sub = rospy.Subscriber("/vel", Vector3, self.vel_callback)
         rospy.wait_for_message("/" + mav_name + "/control_manager/position_cmd", PositionCommand)
 
     ############# Callback Functions #############
     def controller_callback(self, data):
         self.controller_data = data
+    
+    def vel_callback(self, data):
+        self.vel_x = data.x
+        self.vel_y = data.y
+        self.vel_z = data.z
 
     def set_position(self, x, y, z=None, hdg=None):
         if z == None:
@@ -53,10 +65,13 @@ class MRS_MAV:
         self.position_controller.position.z = z
         self.position_controller.heading = hdg
         
-        
-        rospy.wait_for_service("/" + self.mav_name + "/control_manager/reference")
-        while abs(self.controller_data.position.x - x) > TOL or abs(self.controller_data.position.y - y) > TOL:
+        if(self.vel_x == 0 and self.vel_y == 0 and self.vel_z == 0):
+            rospy.wait_for_service("/" + self.mav_name + "/control_manager/reference")
+            while abs(self.controller_data.position.x - x) > TOL or abs(self.controller_data.position.y - y) > TOL:
+                self.reference(reference = self.position_controller)
+        else:
             self.reference(reference = self.position_controller)
+           
     
 
     def land(self):
@@ -75,10 +90,22 @@ class MRS_MAV:
         else:
             rospy.logerr_once(takeoff_output.message)
 
+    def run(self):
+        s = 0.1
+        while not rospy.is_shutdown():
+            if(self.vel_x != 0 or self.vel_y != 0 or self.vel_z != 0):
+                now = rospy.get_rostime()
+                while not rospy.get_rostime() - now > rospy.Duration(secs=s):
+                    
+                    self.rate.sleep()
+                self.set_position(self.controller_data.position.x + (self.vel_x),self.controller_data.position.y + (self.vel_y ),self.controller_data.position.z + (self.vel_z ))
+    
+        
+
+
 
 if __name__ == '__main__':
     rospy.init_node("MRS_MAV")
     mav = MRS_MAV("uav1")
-    mav.set_position(10,10)
-    rospy.spin()
+    mav.run()
         

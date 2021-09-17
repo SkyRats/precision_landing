@@ -1,5 +1,4 @@
 <launch>
-    <node pkg="precision_landing" name="cross_node" type="cross_node" output="screen"/>
-    <node pkg="precision_landing" name="cross_precision_landing" type="cross_precision_landing.py" output="screen"/>
-    
+    <node pkg="precision_landing" name="h_node" type="h_node" output="screen"/>
+    <node pkg="precision_landing" name="control" type="control.py" output="screen"/>
 </launch>
