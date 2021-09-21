@@ -91,15 +91,14 @@ class MRS_MAV:
             rospy.logerr_once(takeoff_output.message)
 
     def run(self):
-        s = 0.1
+        s = 0.5
         while not rospy.is_shutdown():
             if(self.vel_x != 0 or self.vel_y != 0 or self.vel_z != 0):
                 now = rospy.get_rostime()
                 while not rospy.get_rostime() - now > rospy.Duration(secs=s):
-                    
                     self.rate.sleep()
-                self.set_position(self.controller_data.position.x + (self.vel_x),self.controller_data.position.y + (self.vel_y ),self.controller_data.position.z + (self.vel_z ))
-    
+                self.set_position(self.controller_data.position.x + (self.vel_x * s),self.controller_data.position.y + (self.vel_y ),self.controller_data.position.z + (self.vel_z ))
+            self.rate.sleep()
         
 
 

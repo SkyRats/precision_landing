@@ -44,22 +44,20 @@ class PrecisionLanding():
 
         # PIDs
         # Parametros Proporcional,Integrativo e Derivativo
-        self.pid_x = PID(-0.2, -0.01, -0.1)
-        self.pid_y = PID(0.2, 0.01, 0.1)
+        self.pid_x = PID(-0.002, -0, -0)
+        self.pid_y = PID(0.002, 0, 0)
         # Negative parameters (CV's -y -> Frame's +z)
-        self.pid_z = PID(-0.2, -0.005, -0.001)
+        self.pid_z = PID(-0.7, 0, 0)
         self.pid_w = PID(0, 0, 0)  # Orientation
 
-        self.pid_x.setpoint = self.image_pixel_height/2  # y size
+        self.pid_x.setpoint = self.image_pixel_height/2 + 27 # y size
         self.pid_y.setpoint = self.image_pixel_width/2  # x
-        self.pid_z.setpoint = 0.4 #Podemos mudar para um lidar (fazer um filtro)
+        self.pid_z.setpoint = 0.25 #Podemos mudar para um lidar (fazer um filtro)
         self.pid_w.setpoint = 0  # orientation
 
         # Limitacao da saida
-        # output value will be between -0.3 and 0.3
-        self.pid_x.output_limits = self.pid_y.output_limits = (-0.2, 0.2)
-        # output value will be between -0.8 and 0.8
-        self.pid_z.output_limits = (-0.15, 0.15)
+        self.pid_x.output_limits = self.pid_y.output_limits = (-0.15, 0.15)
+        self.pid_z.output_limits = (-0.4, 0.4)
 
 
     def detection_callback(self, vector_data):
@@ -90,7 +88,7 @@ class PrecisionLanding():
             else:
                 self.is_lost = self.delay > 3
             if not self.is_lost and self.first_detection == 1:
-                if self.detection.area_ratio < 0.3:  # Drone ainda esta longe do H
+                if self.detection.area_ratio < 0.12:  # Drone ainda esta longe do H
                     r = 0
                     teta = 0
                     
@@ -98,8 +96,14 @@ class PrecisionLanding():
                     self.velocity.x= self.pid_x(-self.detection.center_y)
                     self.velocity.y = self.pid_y(self.detection.center_x)
                     # PID z must have negative parameters
-                    self.velocity.z = self.pid_z(-self.detection.area_ratio)
+                    self.velocity.z = self.pid_z(self.detection.area_ratio)
 
+                    print("Vel x")
+                    print(self.velocity.x)
+                    print("Vel y")
+                    print(self.velocity.y)
+                    print("Vel z")
+                    print(self.velocity.z)
                     # Armazena ultima posicao em que o drone nao estava perdido
                     last_x = self.MAV.controller_data.position.x
                     last_y = self.MAV.controller_data.position.y
