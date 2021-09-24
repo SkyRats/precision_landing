@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+from pickle import TRUE
 import rospy
 import mrs_msgs
 from mrs_msgs import srv
 from mrs_msgs.msg import PositionCommand, Reference, TrajectoryReference
 from mrs_msgs.srv import TrajectoryReferenceSrv, ReferenceStampedSrv
 from geometry_msgs.msg import Vector3
-import std_srvs
+from std_msgs.msg import Header
 from std_srvs import srv
 from std_srvs.srv import Trigger
 import numpy as np
@@ -19,8 +20,9 @@ class MRS_MAV:
     def __init__(self, mav_name):
         self.rate = rospy.Rate(60)
         self.hz = 60
-        self.controller_data = PositionCommand() #variavel manipulada -> mostra a acao do controle
-        self.position_controller = Reference()   #Input aqui a referencia do controlador -> para onde ele quer ir
+        self.controller_data = PositionCommand()
+        self.position_controller = Reference()
+        self.position_controller_header = Header()
         self.trajectory = TrajectoryReference()
         self.mav_name = mav_name
         self.vel_x = 0
@@ -54,23 +56,30 @@ class MRS_MAV:
         self.vel_y = data.y
         self.vel_z = data.z
 
-    def set_position(self, x, y, z=None, hdg=None):
+    def set_position(self, x, y, z=None, hdg=None, relative_to_drone = False):
         if z == None:
             z = self.controller_data.position.z
         if hdg == None:
             hdg = self.controller_data.heading
+
+        if relative_to_drone:
+            self.position_controller_header.frame_id = "fcu_untilted"
+            self.position_controller_header.stamp = rospy.Time(0)
+
 
         self.position_controller.position.x = x
         self.position_controller.position.y = y
         self.position_controller.position.z = z
         self.position_controller.heading = hdg
         
+        print("oi")
         if(self.vel_x == 0 and self.vel_y == 0 and self.vel_z == 0):
+            print("bele?")
             rospy.wait_for_service("/" + self.mav_name + "/control_manager/reference")
-            while abs(self.controller_data.position.x - x) > TOL or abs(self.controller_data.position.y - y) > TOL:
-                self.reference(reference = self.position_controller)
+            #while abs(self.controller_data.position.x - x) > TOL or abs(self.controller_data.position.y - y) > TOL:
+            self.reference(self.position_controller_header, self.position_controller)
         else:
-            self.reference(reference = self.position_controller)
+            self.reference(self.position_controller_header, self.position_controller)
            
     
 
@@ -97,12 +106,9 @@ class MRS_MAV:
                 now = rospy.get_rostime()
                 while not rospy.get_rostime() - now > rospy.Duration(secs=s):
                     self.rate.sleep()
-                self.set_position(self.controller_data.position.x + (self.vel_x * s),self.controller_data.position.y + (self.vel_y ),self.controller_data.position.z + (self.vel_z ))
+                self.set_position((self.vel_x * s),(self.vel_y ),(self.vel_z ),0, True)
             self.rate.sleep()
         
-
-
-
 if __name__ == '__main__':
     rospy.init_node("MRS_MAV")
     mav = MRS_MAV("uav1")

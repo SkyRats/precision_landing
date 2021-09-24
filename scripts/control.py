@@ -1,16 +1,18 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+from pickle import FALSE
 import rospy
 import math
 import time
 import numpy as np
 
-from MRS_MAV import MRS_MAV
+from mrs_mavbase.MRS_MAV import MRS_MAV
 from precision_landing.msg import H_info
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Bool
 from simple_pid import PID
-
+from mrs_msgs.msg import PositionCommand
+VEL_CERTO = 0.3
 
 class PrecisionLanding():
     def __init__(self, MAV):
@@ -40,24 +42,24 @@ class PrecisionLanding():
         self.first = True
         self.velocity = Vector3()
         self.first_detection = 0
-
-
+        talz = 15 #segundos
+        kpz = 1
         # PIDs
         # Parametros Proporcional,Integrativo e Derivativo
-        self.pid_x = PID(-0.002, -0, -0)
-        self.pid_y = PID(0.002, 0, 0)
+        self.pid_x = PID(-0.005, 0, -0)
+        self.pid_y = PID(0.005, 0, 0)
         # Negative parameters (CV's -y -> Frame's +z)
-        self.pid_z = PID(-0.7, 0, 0)
+        self.pid_z = PID(-kpz, -kpz/talz, 0)
         self.pid_w = PID(0, 0, 0)  # Orientation
 
-        self.pid_x.setpoint = self.image_pixel_height/2 + 27 # y size
+        self.pid_x.setpoint = self.image_pixel_height/2  # y size
         self.pid_y.setpoint = self.image_pixel_width/2  # x
-        self.pid_z.setpoint = 0.25 #Podemos mudar para um lidar (fazer um filtro)
+        self.pid_z.setpoint = 0.12 #Podemos mudar para um lidar (fazer um filtro)
         self.pid_w.setpoint = 0  # orientation
 
         # Limitacao da saida
-        self.pid_x.output_limits = self.pid_y.output_limits = (-0.15, 0.15)
-        self.pid_z.output_limits = (-0.4, 0.4)
+        self.pid_x.output_limits = self.pid_y.output_limits = (-1, 1)
+        self.pid_z.output_limits = (-1, 1)
 
 
     def detection_callback(self, vector_data):
@@ -67,6 +69,7 @@ class PrecisionLanding():
         self.first_detection = 1
 
     def run(self, initial_height):
+        rospy.wait_for_message("/uav1/control_manager/position_cmd", PositionCommand)
         # Inicializacao das variaveis usadas caso o drone perca o H
         r = 0  # Inicia valor para o raio da espiral
         teta = 0  # Inicia valor para o teta da espiral
@@ -88,7 +91,7 @@ class PrecisionLanding():
             else:
                 self.is_lost = self.delay > 3
             if not self.is_lost and self.first_detection == 1:
-                if self.detection.area_ratio < 0.12:  # Drone ainda esta longe do H
+                if self.detection.area_ratio < 0.1:  # Drone ainda esta longe do H
                     r = 0
                     teta = 0
                     
@@ -96,7 +99,10 @@ class PrecisionLanding():
                     self.velocity.x= self.pid_x(-self.detection.center_y)
                     self.velocity.y = self.pid_y(self.detection.center_x)
                     # PID z must have negative parameters
-                    self.velocity.z = self.pid_z(self.detection.area_ratio)
+                    if(abs(self.velocity.x) < VEL_CERTO and abs(self.velocity.y) < VEL_CERTO):
+                        self.velocity.z = self.pid_z(self.detection.area_ratio)
+                    else:
+                        self.velocity.z = 0
 
                     print("Vel x")
                     print(self.velocity.x)
@@ -128,20 +134,11 @@ class PrecisionLanding():
                 x = last_x
                 y = last_y
                 self.first = False
-                self.MAV.set_position(x, y, initial_height)
-            elif self.done != 1:  # Drone perdeu o H
-                ### Fazer espiral ###
-               
-                rospy.loginfo("Fazendo espiral")
-                self.flag = 0
-                # Funcao de espiral e volta para dois metros de altura
-                r += 0.002
-                teta += 0.03
-                x = last_x - r * math.cos(teta)
-                y = last_y - r * math.sin(teta)
-                self.MAV.set_position(x, y, initial_height)
-                if (r > 1.5):  # limita o tamanho da espiral
-                    r = 0
+
+                self.MAV.set_position(x, y, last_z, 0, False)
+            elif self.done != 1:  # Drone perdeu o H               
+                rospy.loginfo("Perdido")
+                self.MAV.set_position(last_x, last_y, last_z , 0, False)
 
             self.rate.sleep()
 
