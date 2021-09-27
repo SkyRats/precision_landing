@@ -68,7 +68,7 @@ class PrecisionLanding():
         self.last_time = time.time()
         self.first_detection = 1
 
-    def run(self, initial_height):
+    def precision_land(self, initial_height):
         rospy.wait_for_message("/uav1/control_manager/position_cmd", PositionCommand)
         # Inicializacao das variaveis usadas caso o drone perca o H
         r = 0  # Inicia valor para o raio da espiral
@@ -119,6 +119,12 @@ class PrecisionLanding():
                     # Caso o drone esteja suficientemente perto do H
                     rospy.loginfo("H encontrado!")
                     rospy.logwarn("Descendo...")
+                    
+                    self.MAV.set_position(0,-0.17 ,0,relative_to_drone=True)
+                    now = rospy.get_rostime()
+                    while not rospy.get_rostime() - now > rospy.Duration(secs=2):
+                        print("parado")
+                        self.rate.sleep()
                     self.MAV.land()
                     for i in range(10):
                         self.cv_control_publisher.publish(Bool(False))
@@ -141,6 +147,9 @@ class PrecisionLanding():
                 self.MAV.set_position(last_x, last_y, last_z , 0, False)
 
             self.rate.sleep()
+    
+    def run():
+        #Depois de ter a tajetoria, criar um subscriber para receber se deve ou nao usar o precision_land
 
 
 if __name__ == "__main__":
@@ -148,4 +157,4 @@ if __name__ == "__main__":
     drone = MRS_MAV("uav1")
     c = PrecisionLanding(drone)
     initial_height = 4
-    c.run(initial_height)
+    c.precision_land(initial_height)
