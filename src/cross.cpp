@@ -9,14 +9,14 @@ using namespace cv;
 #include "precision_landing/H_info.h"
 #include "std_msgs/Bool.h"
 
-#define AREA_THRESH 0.003
+#define AREA_THRESH 0.008
 #define PI 3.14159265
 
 #define vp vector<Point>
 #define vpf vector<Point2f>
 
 // Set true for debugging purposes, showing internals of algorithm
-#define DEBUG true
+#define DEBUG false
 
 // Sorts points based on y coordinate
 struct comparison
@@ -37,7 +37,7 @@ private:
   ros::Publisher img_debug_pub;
   ros::Subscriber h_sub_image;
   ros::Subscriber h_sub_runner;
-  bool runnin;
+  bool runnin = 0;
 
 public:
   HDetector();
@@ -66,7 +66,7 @@ void HDetector::runnin_state_cb(std_msgs::Bool data)
 
 void HDetector::image_cb(const sensor_msgs::ImageConstPtr &img)
 {
-  if (this->runnin) 
+  if (this->runnin ) 
   {
 
     cv_bridge::CvImagePtr cv_ptr;
@@ -87,12 +87,12 @@ void HDetector::image_cb(const sensor_msgs::ImageConstPtr &img)
       msg.center_x = this->getCenterX();
       msg.center_y = this->getCenterY();
       msg.area_ratio = this->getArea();
-      if (DEBUG)
-      {
-        cout << "Centro em x: " << msg.center_x << endl;
-        cout << "Centro em y: " << msg.center_y << endl;
-        cout << "Area ratio " << msg.area_ratio << endl;
-      }
+      
+      
+      cout << "Centro em x: " << msg.center_x << endl;
+      cout << "Centro em y: " << msg.center_y << endl;
+      cout << "Area ratio " << msg.area_ratio << endl;
+      
 
       this->h_pub.publish(msg);
     }
@@ -139,11 +139,11 @@ bool HDetector::detect(Mat frame)
   // Blur and threshold remove noise from image
   // medianBlur(hsvFrame, hsvFrame, 11);
   // GaussianBlur(hsvFrame, hsvFrame, Size(9, 9), 1.0);
-  bilateralFilter(frame, bgrFrame, 15, 50, 50);
+  bilateralFilter(frame, bgrFrame, 0, 100, 0);
   cvtColor(bgrFrame, hsvFrame, COLOR_BGR2HSV);
   imshow("Blur", hsvFrame);
   // inRange(hsvFrame, Scalar(30, 150, 0), Scalar(70, 255, 255), hsvFrame);
-  inRange(hsvFrame, Scalar(25, 0, 0), Scalar(35, 255, 255), maskFrame);
+  inRange(hsvFrame, Scalar(20, 25, 0), Scalar(35, 255, 255), maskFrame);
 
   if (!maskFrame.empty())
     imshow("mask", maskFrame);
@@ -200,7 +200,7 @@ bool HDetector::detect(Mat frame)
 int main(int argc, char **arvg)
 {
   ROS_INFO("Running cross detection node!");
-  ros::init(argc, arvg, "h_node");
+  ros::init(argc, arvg, "cross_node");
   HDetector *detector = new HDetector();
   ros::spin();
 }

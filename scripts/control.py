@@ -22,6 +22,7 @@ class PrecisionLanding():
         self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
         self.last_time = time.time()
         self.vel_publisher = rospy.Publisher("/vel", Vector3, queue_size=10)
+        self.base_publisher = rospy.Publisher("/base_position", Vector3, queue_size=10)
         self.stop_publisher = rospy.Publisher("/stop_trajectory", Bool, queue_size=10)
 
         # Cam Params
@@ -65,18 +66,15 @@ class PrecisionLanding():
     def precision_land(self, initial_height):
         rospy.wait_for_message("/uav1/control_manager/position_cmd", PositionCommand)
         # Inicializacao das variaveis usadas caso o drone perca o H
-        r = 0  # Inicia valor para o raio da espiral
-        teta = 0  # Inicia valor para o teta da espiral
-        last_x = self.MAV.controller_data.position.x 
-        last_y = self.MAV.controller_data.position.y
-        last_z = self.MAV.controller_data.position.z
+        last_x = return_to_trajectory_x = self.MAV.controller_data.position.x 
+        last_y = return_to_trajectory_y = self.MAV.controller_data.position.y
+        last_z = return_to_trajectory_z = self.MAV.controller_data.position.z
         flag =0 
         print(last_x)
         print(last_y)
         print(last_z)
         self.done = 0
         
-
         while not rospy.is_shutdown() and self.done == 0:
             self.delay = time.time() - self.last_time
             if self.first:
@@ -85,18 +83,21 @@ class PrecisionLanding():
                 self.is_lost = self.delay > 3
             if not self.is_lost and self.first_detection == 1:
                 if self.detection.area_ratio < 0.1:  # Drone ainda esta longe do H
-                    r = 0
-                    teta = 0
                     if(flag == 0):
+                        rospy.loginfo("Controle PID")
+                        print("Stop trajectory")
                         for i in range(10):
                             self.stop_publisher.publish(1)
                             self.rate.sleep()
                         flag = 1
+                    return_to_trajectory_x = self.MAV.controller_data.position.x
+                    return_to_trajectory_y = self.MAV.controller_data.position.y
+                    return_to_trajectory_z = self.MAV.controller_data.position.z
+                
                     
                     for i in range(10):
                         self.stop_publisher.publish(Bool(True))
                     
-                    rospy.loginfo("Controle PID")
                     self.velocity.x= self.pid_x(-self.detection.center_y)
                     self.velocity.y = self.pid_y(self.detection.center_x)
                     # PID z must have negative parameters
@@ -105,12 +106,6 @@ class PrecisionLanding():
                     else:
                         self.velocity.z = 0
 
-                    print("Vel x")
-                    print(self.velocity.x)
-                    print("Vel y")
-                    print(self.velocity.y)
-                    print("Vel z")
-                    print(self.velocity.z)
                     # Armazena ultima posicao em que o drone nao estava perdido
                     last_x = self.MAV.controller_data.position.x
                     last_y = self.MAV.controller_data.position.y
@@ -127,15 +122,19 @@ class PrecisionLanding():
                     while not rospy.get_rostime() - now > rospy.Duration(secs=2):
                         self.rate.sleep()
                     self.MAV.land()
-                    for i in range(100):
-                        self.cv_control_publisher.publish(Bool(False))
-                        self.MAV.rate.sleep()
-                    while(self.MAV.controller_data.position.z - 0 > 0.005):
+                    now = rospy.get_rostime()
+                    while not rospy.get_rostime() - now > rospy.Duration(secs=4):
                         self.rate.sleep()
                     self.MAV.disarm()
+                    base_pos_x = self.MAV.controller_data.position.x
+                    base_pos_y = self.MAV.controller_data.position.y
+
                     rospy.loginfo("Localizacao da base:")
-                    rospy.loginfo(self.MAV.controller_data.position.x)
-                    rospy.loginfo(self.MAV.controller_data.position.y)
+                    rospy.loginfo(base_pos_x)
+                    rospy.loginfo(base_pos_y)
+                    for i in range(10):
+                        self.base_publisher.publish(base_pos_x,base_pos_y,0)
+                        print("publicando")
 
                     now = rospy.get_rostime()
                     while not rospy.get_rostime() - now > rospy.Duration(secs=2):
@@ -145,6 +144,13 @@ class PrecisionLanding():
                     while not rospy.get_rostime() - now > rospy.Duration(secs=2):
                         self.rate.sleep()
                     self.MAV.takeoff()
+                    now = rospy.get_rostime()
+                    while not rospy.get_rostime() - now > rospy.Duration(secs=2):
+                        self.rate.sleep()
+                    self.MAV.set_position(return_to_trajectory_x, return_to_trajectory_y,return_to_trajectory_z, 0, False)
+                    print("Voltou para posicao e ligou trajetoria")
+                    for i in range(10):
+                            self.stop_publisher.publish(Bool(False))
     
                 for i in range(10):
                     self.vel_publisher.publish(self.velocity)
@@ -157,9 +163,10 @@ class PrecisionLanding():
                 self.first = False
 
                 self.MAV.set_position(x, y, last_z, 0, False)
-            elif self.done != 1:  # Drone perdeu o H               
-                rospy.loginfo("Ainda nao achou a cruz")
-                for i in range(10):
+            elif self.done != 1:  # Drone perdeu o H 
+                if flag == 1:              
+                    rospy.loginfo("Ainda nao achou a cruz")
+                    for i in range(10):
                         self.stop_publisher.publish(Bool(False))
                 flag = 0
 

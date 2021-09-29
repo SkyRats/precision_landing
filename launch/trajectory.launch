@@ -1,8 +1,8 @@
 <launch>
   <node
     pkg="precision_landing"
-    type="h_node"
-    name="h_node" 
+    type="cross_node"
+    name="cross_node" 
     output="screen"
   />
   <node
@@ -11,6 +11,12 @@
     name="control"
     output="screen"
   />
+  <node
+    pkg="precision_landing"
+    type="trajectory.py"
+    name="trajectory"
+    output="screen"
+  /> 
   <node
     pkg="mrs_mavbase"
     type="MRS_MAV.py"
