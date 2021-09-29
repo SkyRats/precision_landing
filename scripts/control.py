@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from pickle import FALSE
 import rospy
-import math
 import time
 import numpy as np
 
@@ -18,17 +17,12 @@ class PrecisionLanding():
     def __init__(self, MAV):
         # ROS setup
         self.rate = rospy.Rate(60)
-
         self.MAV = MAV
 
-        self.cv_control_publisher = rospy.Publisher(
-            "/precision_landing/set_running_state", Bool, queue_size=10)
-
-        self.detection_sub = rospy.Subscriber(
-            '/precision_landing/detection', H_info, self.detection_callback)
+        self.detection_sub = rospy.Subscriber('/precision_landing/detection', H_info, self.detection_callback)
         self.last_time = time.time()
-
         self.vel_publisher = rospy.Publisher("/vel", Vector3, queue_size=10)
+        self.stop_publisher = rospy.Publisher("/stop_trajectory", Bool, queue_size=10)
 
         # Cam Params
         self.image_pixel_width = 752
@@ -43,7 +37,7 @@ class PrecisionLanding():
         self.velocity = Vector3()
         self.first_detection = 0
         talz = 15 #segundos
-        kpz = 1
+        kpz = 2
         # PIDs
         # Parametros Proporcional,Integrativo e Derivativo
         self.pid_x = PID(-0.005, 0, -0)
@@ -76,15 +70,14 @@ class PrecisionLanding():
         last_x = self.MAV.controller_data.position.x 
         last_y = self.MAV.controller_data.position.y
         last_z = self.MAV.controller_data.position.z
+        flag =0 
         print(last_x)
         print(last_y)
         print(last_z)
+        self.done = 0
+        
 
-        for i in range(10):
-            self.cv_control_publisher.publish(Bool(True))
-            self.MAV.rate.sleep()
-
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown() and self.done == 0:
             self.delay = time.time() - self.last_time
             if self.first:
                 self.is_lost = True
@@ -94,6 +87,14 @@ class PrecisionLanding():
                 if self.detection.area_ratio < 0.1:  # Drone ainda esta longe do H
                     r = 0
                     teta = 0
+                    if(flag == 0):
+                        for i in range(10):
+                            self.stop_publisher.publish(1)
+                            self.rate.sleep()
+                        flag = 1
+                    
+                    for i in range(10):
+                        self.stop_publisher.publish(Bool(True))
                     
                     rospy.loginfo("Controle PID")
                     self.velocity.x= self.pid_x(-self.detection.center_y)
@@ -116,21 +117,35 @@ class PrecisionLanding():
                     last_z = self.MAV.controller_data.position.z
 
                 else:
+                    flag = 0
                     # Caso o drone esteja suficientemente perto do H
-                    rospy.loginfo("H encontrado!")
+                    rospy.loginfo("Cruz encontrada!")
                     rospy.logwarn("Descendo...")
                     
-                    self.MAV.set_position(0,-0.17 ,0,relative_to_drone=True)
+                    self.MAV.set_position(0,-0.2 ,0,relative_to_drone=True)
                     now = rospy.get_rostime()
                     while not rospy.get_rostime() - now > rospy.Duration(secs=2):
-                        print("parado")
                         self.rate.sleep()
                     self.MAV.land()
-                    for i in range(10):
+                    for i in range(100):
                         self.cv_control_publisher.publish(Bool(False))
                         self.MAV.rate.sleep()
-                    self.done = 1
+                    while(self.MAV.controller_data.position.z - 0 > 0.005):
+                        self.rate.sleep()
+                    self.MAV.disarm()
+                    rospy.loginfo("Localizacao da base:")
+                    rospy.loginfo(self.MAV.controller_data.position.x)
+                    rospy.loginfo(self.MAV.controller_data.position.y)
 
+                    now = rospy.get_rostime()
+                    while not rospy.get_rostime() - now > rospy.Duration(secs=2):
+                        self.rate.sleep()
+                    self.MAV.arm()
+                    now = rospy.get_rostime()
+                    while not rospy.get_rostime() - now > rospy.Duration(secs=2):
+                        self.rate.sleep()
+                    self.MAV.takeoff()
+    
                 for i in range(10):
                     self.vel_publisher.publish(self.velocity)
                     self.rate.sleep()
@@ -143,14 +158,16 @@ class PrecisionLanding():
 
                 self.MAV.set_position(x, y, last_z, 0, False)
             elif self.done != 1:  # Drone perdeu o H               
-                rospy.loginfo("Perdido")
-                self.MAV.set_position(last_x, last_y, last_z , 0, False)
+                rospy.loginfo("Ainda nao achou a cruz")
+                for i in range(10):
+                        self.stop_publisher.publish(Bool(False))
+                flag = 0
 
             self.rate.sleep()
     
-    def run():
+    '''def run():
         #Depois de ter a tajetoria, criar um subscriber para receber se deve ou nao usar o precision_land
-
+        pass'''
 
 if __name__ == "__main__":
     rospy.init_node('control')

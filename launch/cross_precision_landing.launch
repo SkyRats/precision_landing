@@ -1,4 +1,20 @@
 <launch>
-    <node pkg="precision_landing" name="h_node" type="h_node" output="screen"/>
-    <node pkg="precision_landing" name="control" type="control.py" output="screen"/>
-</launch>
+  <node
+    pkg="precision_landing"
+    type="h_node"
+    name="h_node" 
+    output="screen"
+  />
+  <node
+    pkg="precision_landing"
+    type="control.py"
+    name="control"
+    output="screen"
+  />
+  <node
+    pkg="mrs_mavbase"
+    type="MRS_MAV.py"
+    name="MRS_MAV"
+    output="screen"
+  />
+</launch> 

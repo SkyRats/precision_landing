@@ -9,7 +9,7 @@ using namespace cv;
 #include "precision_landing/H_info.h"
 #include "std_msgs/Bool.h"
 
-#define AREA_THRESH 0.01
+#define AREA_THRESH 0.003
 #define PI 3.14159265
 
 #define vp vector<Point>
@@ -66,7 +66,7 @@ void HDetector::runnin_state_cb(std_msgs::Bool data)
 
 void HDetector::image_cb(const sensor_msgs::ImageConstPtr &img)
 {
-  if (this->runnin)
+  if (this->runnin) 
   {
 
     cv_bridge::CvImagePtr cv_ptr;
