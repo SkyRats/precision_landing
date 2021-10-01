@@ -57,6 +57,7 @@ HDetector::HDetector()
   // this->h_sub_image = this->n.subscribe("/uav1/bluefox_optflow/image_raw", 5, &HDetector::image_cb, this);
   this->h_sub_image = this->n.subscribe("/uav1/bluefox_optflow/image_raw", 5, &HDetector::image_cb, this);
   this->h_sub_runner = this->n.subscribe("/precision_landing/set_running_state", 10, &HDetector::runnin_state_cb, this);
+  cout << "Iniciou cross.cpp " << endl;
 }
 
 void HDetector::runnin_state_cb(std_msgs::Bool data)
@@ -66,7 +67,7 @@ void HDetector::runnin_state_cb(std_msgs::Bool data)
 
 void HDetector::image_cb(const sensor_msgs::ImageConstPtr &img)
 {
-  if (this->runnin ) 
+  if (this->runnin) 
   {
 
     cv_bridge::CvImagePtr cv_ptr;
@@ -96,7 +97,14 @@ void HDetector::image_cb(const sensor_msgs::ImageConstPtr &img)
 
       this->h_pub.publish(msg);
     }
+    else{
+      msg.detected = false;
+      msg.center_x = -1;
+      msg.center_y = -1;
+      msg.area_ratio = 0;
   }
+      
+   }
 }
 
 float HDetector::getArea()

@@ -14,12 +14,13 @@ TOL = 1
 
 class Trajectory():
     def __init__(self, MAV):
-        self.rate = rospy.Rate(0.5)
+        self.rate = rospy.Rate(60)
         self.MAV = MAV
-        self.altura = 4    #Altura da trajetoria
+        self.altura = 5    #Altura da trajetoria
         self.stop = False
         self.vel = 4
         self.Lista_das_bases = []
+        self.parte_missao = 0
 
 
         ##############Publishers##################
@@ -33,18 +34,15 @@ class Trajectory():
     def base_pos_callback(self, data):  #Recebe posicao das bases encontradas
         self.base_pos_x = data.x
         self.base_pos_y = data.y
-        print(data.x)
-        print(data.y)
         if [data.x,data.y] not in self.Lista_das_bases: 
             self.Lista_das_bases.append([self.base_pos_x,self.base_pos_y])
 
 
     def stop_callback(self, data):      #Recebe ordem para parar a trajetoria
-        self.stop = data
+        self.stop = data.data
         
     def run(self):
         flag = 0
-        parte_missao = 0
         initial_x = 30
         initial_y = 40
         largura = 15
@@ -52,38 +50,47 @@ class Trajectory():
         goal_x = initial_x
         cont = 0
         loop = 0
-        self.MAV.set_position(initial_x,initial_y,self.altura, hdg = 0, relative_to_drone = False)  #Ponto de partida
-        print("Ponto inicial")
-        while(not rospy.is_shutdown() and parte_missao < 9):
-            for i in range(30):
-                    self.cv_control_publisher.publish(Bool(self.verificar_area()))   #Liga a deteccao da cruz
-                    print("CV: " + str(self.verificar_area()))
-            if(self.stop == 0 ):
-                flag = 0
-                if(parte_missao == 0):
-                    goal_y = 10
-                    parte_missao = 1
+        goal_y = 10
+        if(self.parte_missao == 0):
+            self.MAV.set_position(initial_x,initial_y,self.altura, hdg = 0, relative_to_drone = False)  #Ponto de partida
+            self.parte_missao = 1
 
-                elif(parte_missao == 1):
+        print("Ponto inicial")
+        while(not rospy.is_shutdown() and self.parte_missao < 9):
+            for i in range(50):
+                self.cv_control_publisher.publish(Bool(self.verificar_area()))   #Liga a deteccao da cruz
+                #print("CV: " + str(self.verificar_area()))
+                self.rate.sleep()
+            
+            if(self.stop == False ):
+                flag = 0
+                
+                if(self.parte_missao == 1):
                     self.MAV.set_position(initial_x, initial_y - cont, self.altura)
                     cont+= self.vel
                     if (self.MAV.controller_data.position.y - goal_y < TOL):
-                        parte_missao = 2
+                        self.parte_missao = 2
                         print("Chegou perto da base")
 
 
-                elif(parte_missao == 2):
-                    self.MAV.set_position(46,9,-2)
-                    parte_missao = 3
+                elif(self.parte_missao == 2):
+                    self.MAV.set_position(46,9,self.altura)
+                    self.MAV.set_position(46,9,-6)
+                    self.parte_missao = 3
                     print("Chegou na base")
 
-                elif(parte_missao == 3):
-                    self.MAV.rate.sleep()
-                    self.MAV.set_position(30,10,self.altura, hdg = 0, relative_to_drone = False)
-                    parte_missao = 4
-                    print(loop)
+                elif(self.parte_missao == 3):
+                    print("Voltando para trajetoria")
+                    print("Pos:")
+                    print(self.MAV.controller_data.position.x)
+                    print(self.MAV.controller_data.position.y)
+                    self.MAV.set_position(46,9,self.altura)
+                    self.MAV.set_position(initial_x,goal_y,self.altura)
+                    
+                    self.parte_missao = 4
+                    print("voltou para trajetoria")
 
-                elif(parte_missao == 4):
+                elif(self.parte_missao == 4):
                     if (curva == 0):
                         initial_y = 10
                         goal_y = -30 #-20
@@ -95,6 +102,8 @@ class Trajectory():
                         
                             self.MAV.set_position(goal_x, initial_y - cont, self.altura)
                             cont -= self.vel
+                            #self.MAV.set_position(0,self.vel,0, relative_to_drone = True)
+
                             if(self.MAV.controller_data.position.y - goal_y > TOL):
                                 loop = loop + 1
                                 cont = 0
@@ -105,6 +114,7 @@ class Trajectory():
                             print("ida")
                             self.MAV.set_position(goal_x, initial_y - cont, self.altura)
                             cont += self.vel
+                            #self.MAV.set_position(0,-self.vel,0, relative_to_drone = True)
                             if(self.MAV.controller_data.position.y - goal_y < TOL):
                                 loop += 1
                                 cont = 0
@@ -115,57 +125,59 @@ class Trajectory():
                         print("curva")
                         self.MAV.set_position(initial_x -(loop * largura) - cont, goal_y, self.altura)
                         cont += self.vel
+                        #self.MAV.set_position(-self.vel,0,0, relative_to_drone = True)
                         if(self.MAV.controller_data.position.x - goal_x < TOL):
                             cont = 0
                             curva = 0
 
                     if(loop == 3):
-                        parte_missao = 5
+                        self.parte_missao = 5
                         print("Fim zigzag")
 
 
-                elif (parte_missao == 5):
-                    self.MAV.set_position(-19,-21,self.altura)
-                    parte_missao = 6
+                elif (self.parte_missao == 5):
+                    self.MAV.set_position(-19,-21,self.altura + 3)
+                    self.parte_missao = 6
 
-                elif parte_missao == 6:
+                elif self.parte_missao == 6:
                     self.MAV.set_position(-50,-21,self.altura + 3)
-                    parte_missao = 7
+                    self.parte_missao = 7
 
-                elif parte_missao == 7:
+                elif self.parte_missao == 7:
                     self.MAV.set_position(-19,-21,self.altura)
-                    parte_missao = 8
+                    self.parte_missao = 8
                 
-                elif parte_missao == 8:
-                    self.MAV.RTL()
-                    parte_missao = 9
+                elif self.parte_missao == 8:
+                    pass
+                    #self.MAV.RTL()
+                    #self.parte_missao = 9
             else:
                 if(flag == 0):
                     self.MAV.set_position(0,0,0,0,relative_to_drone = True)
                     flag = 1
 
-            self.rate.sleep()
+            for i in range(10):
+                self.rate.sleep()
+            
 
     def verificar_area(self): # Ainda nao ta dando certo
-        print("VERIFICAR AREA")
-        print(self.Lista_das_bases)
         for [x,y] in self.Lista_das_bases:
-            print("x: ")
-            print(x)
-            print("y: ")
-            print(y)
             if( np.power((self.MAV.controller_data.position.x - x),2) + np.power((self.MAV.controller_data.position.y - y),2) <= 144):
-                print("FALSE")
                 return False
-        print("TRUE")
         return True
-      
+
+    def teste(self):
+        print("On")
+        for i in range(50):
+            self.cv_control_publisher.publish(False)   #Liga a deteccao da cru
+            self.rate.sleep()
+              
 if __name__ == "__main__":
     rospy.init_node('trajectory')
     drone = MRS_MAV("uav1")
     c = Trajectory(drone)
     c.run()
-
+    #c.teste()   
 
 
 
